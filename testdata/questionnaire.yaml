@@ -1,0 +1,6 @@
+questions:
+  - id: "q1"
+    text: "Question 1?"
+    answers:
+      - "Answer 1"
+      - "Answer 2"
