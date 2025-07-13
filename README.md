@@ -37,3 +37,14 @@ func main() {
     questions, err := q.Next(answers)
 }
 ```
+
+## TODOs
+
+- [ ] Configure GitHub actions to run tests (cf. https://docs.github.com/en/actions/how-tos/writing-workflows/building-and-testing/building-and-testing-go)
+- [ ] Add recommendations and closing remarks
+- [ ] Add a function to check if the questionnaire is finished
+- [ ] Add more examples
+- [ ] Add loaders for different configuration formats
+  - read the configuration from a JSON file
+  - read the configuration from JSON bytes
+  - pass pre-configured questions
