@@ -10,7 +10,8 @@ import (
 
 type (
 	Questionnaire struct {
-		Questions []Question `yaml:"questions"`
+		Questions      []Question `yaml:"questions"`
+		askedQuestions map[string]bool
 	}
 
 	Question struct {
@@ -29,7 +30,9 @@ type (
 // - reading the given YAML or JSON configuration (TODO)
 // - using the given configuration (TODO)
 func New[T config](config T) (*Questionnaire, error) {
-	q := &Questionnaire{}
+	q := &Questionnaire{
+		askedQuestions: make(map[string]bool),
+	}
 	// TODO: introduce a loader interface to handle different config types
 	// these loaders would be responsible for reading from files, parsing YAML/JSON, etc.
 	if err := loadConfig(config, q); err != nil {
@@ -73,8 +76,9 @@ func loadYamlConfig(data []byte, q *Questionnaire) error {
 func (q *Questionnaire) Start() []Question {
 	var nextQuestions []Question
 	for _, question := range q.Questions {
-		if question.Condition == "" {
-			return []Question{question}
+		if question.Condition == "" && !q.askedQuestions[question.Id] {
+			q.askedQuestions[question.Id] = true
+			nextQuestions = append(nextQuestions, question)
 		}
 	}
 
@@ -85,11 +89,16 @@ func (q *Questionnaire) Start() []Question {
 func (q *Questionnaire) Next(answers map[string]int) ([]Question, error) {
 	var nextQuestions []Question
 	for _, question := range q.Questions {
+		if q.askedQuestions[question.Id] {
+			continue
+		}
+
 		show, err := shouldShowQuestion(question, answers)
 		if err != nil {
 			return nil, fmt.Errorf("failed to show question: %w", err)
 		}
 		if show {
+			q.askedQuestions[question.Id] = true
 			nextQuestions = append(nextQuestions, question)
 		}
 	}

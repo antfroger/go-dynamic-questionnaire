@@ -73,12 +73,56 @@ questions:
 	Describe("Start", func() {
 		When("the questionnaire has just been loaded", func() {
 			It("should return the first batch of questions", func() {
-				q, err := gdq.New("testdata/questionnaire.yaml")
+				q, err := gdq.New([]byte(`
+questions:
+  - id: "q1"
+    text: "Question 1?"
+    answers:
+      - "Yes"
+      - "No"
+  - id: "q2"
+    text: "Question 2?"
+    answers:
+      - "Yes"
+      - "No"
+    condition: "answers['q1'] == 1"
+`))
 				Expect(err).ToNot(HaveOccurred())
 
 				questions := q.Start()
 				Expect(questions).To(Equal([]gdq.Question{
 					{Id: "q1", Text: "Question 1?"},
+				}))
+			})
+		})
+
+		When("the questionnaire contains several questions without conditions", func() {
+			It("should return all of these questions", func() {
+				q, err := gdq.New([]byte(`
+questions:
+  - id: "q1"
+    text: "Question 1?"
+    answers:
+      - "Yes"
+      - "No"
+  - id: "q2"
+    text: "Question 2?"
+    answers:
+      - "Yes"
+      - "No"
+  - id: "q3"
+    text: "Question 3?"
+    answers:
+      - "Yes"
+      - "No"
+    condition: "answers['q1'] == 1 and answers['q2'] == 1"
+`))
+				Expect(err).ToNot(HaveOccurred())
+
+				questions := q.Start()
+				Expect(questions).To(Equal([]gdq.Question{
+					{Id: "q1", Text: "Question 1?"},
+					{Id: "q2", Text: "Question 2?"},
 				}))
 			})
 		})
@@ -160,11 +204,12 @@ questions:
 			})
 
 			When("no answers are given", func() {
-				It("should return the same questions as Start", func() {
+				It("should return the first batch of questions", func() {
 					questions, err := q.Next(map[string]int{})
-					expected := q.Start()
-					Expect(questions).To(Equal(expected))
 					Expect(err).ToNot(HaveOccurred())
+					Expect(questions).To(Equal([]gdq.Question{
+						{Id: "q1", Text: "Question 1?"},
+					}))
 				})
 			})
 
@@ -176,19 +221,20 @@ questions:
 						{Id: "q2", Text: "Question 2?", Condition: `answers["q1"] == 1`},
 						{Id: "q3", Text: "Question 3?", Condition: `answers["q1"] == 1`},
 					}))
-
-					questions, err = q.Next(map[string]int{"q1": 2})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(questions).To(Equal([]gdq.Question{
-						{Id: "q4", Text: "Question 4?", Condition: `answers["q1"] == 2`},
-					}))
 				})
 			})
 
 			When("several questions have been answered", func() {
 				When("more questions are available", func() {
 					It("should return the next questions depending on the answers", func() {
-						questions, err := q.Next(map[string]int{"q2": 2, "q3": 2})
+						questions, err := q.Next(map[string]int{"q1": 1})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(questions).To(Equal([]gdq.Question{
+							{Id: "q2", Text: "Question 2?", Condition: `answers["q1"] == 1`},
+							{Id: "q3", Text: "Question 3?", Condition: `answers["q1"] == 1`},
+						}))
+
+						questions, err = q.Next(map[string]int{"q1": 1, "q2": 2, "q3": 2})
 						Expect(questions).To(Equal([]gdq.Question{
 							{Id: "q5", Text: "Question 5?", Condition: `answers["q2"] == 2 and answers["q3"] == 2`},
 						}))
@@ -196,13 +242,17 @@ questions:
 					})
 				})
 
-				When("the questionnaire reached its end", func() {
+				When("the questionnaire has reached its end", func() {
 					It("should return an empty response", func() {
-						questions, err := q.Next(map[string]int{"q2": 2, "q3": 1})
+						questions, err := q.Next(map[string]int{"q4": 1})
 						Expect(questions).To(BeEmpty())
 						Expect(err).ToNot(HaveOccurred())
+					})
+				})
 
-						questions, err = q.Next(map[string]int{"q4": 1})
+				When("the given answers are not valid", func() {
+					It("should return an empty response", func() {
+						questions, err := q.Next(map[string]int{"q1": 10})
 						Expect(questions).To(BeEmpty())
 						Expect(err).ToNot(HaveOccurred())
 					})
@@ -249,8 +299,6 @@ questions:
 				})
 
 			})
-
-			When("the given answers are not valid", func() {}) // is it possible?
 		})
 	})
 })
