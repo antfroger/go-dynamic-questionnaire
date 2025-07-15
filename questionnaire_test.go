@@ -12,18 +12,37 @@ import (
 
 var _ = Describe("Questionnaire", func() {
 	Describe("New", func() {
-		When("config is a yaml file", func() {
-			Describe("New", func() {
-				It("should load a questionnaire from a YAML file", func() {
-					q, err := gdq.New("testdata/questionnaire.yaml")
-					Expect(err).To(BeNil())
-					Expect(q).To(BeAssignableToTypeOf(&gdq.Questionnaire{}))
-				})
-
-				It("should handle missing configuration file", func() {
+		When("config is a file", func() {
+			When("the given file does not exist", func() {
+				It("returns an error", func() {
 					_, err := gdq.New("testdata/missing.yaml")
 					Expect(err).To(MatchError(ContainSubstring(`failed to read config file "testdata/missing.yaml"`)))
 					Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
+				})
+			})
+
+			When("the given file exists", func() {
+				It("should load a questionnaire from the file", func() {
+					content := []byte(`
+questions:
+  - id: "q1"
+    text: "Question 1?"
+    answers:
+      - "Answer 1"
+      - "Answer 2"
+`)
+					tmpFile, err := os.CreateTemp("", "questionnaire-*.yaml")
+					Expect(err).To(BeNil())
+					defer os.Remove(tmpFile.Name())
+
+					_, err = tmpFile.Write(content)
+					Expect(err).To(BeNil())
+					tmpFile.Close()
+
+					q, err := gdq.New(tmpFile.Name())
+					Expect(err).To(BeNil())
+					Expect(q).To(BeAssignableToTypeOf(&gdq.Questionnaire{}))
+
 				})
 			})
 		})

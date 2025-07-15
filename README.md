@@ -1,8 +1,8 @@
 # Dynamic Questionnaire
 
-Dynamic Questionnaire is a Go library that generates dynamic questionnaires for you.
-The Go Dynamic Questionnaire is a Go library that creates dynamic questionnaires. Want to create a questionnaire for your
-Go project that adapts the next questions based on previous answers? Go Dynamic Questionnaire is what you're looking for!
+The Go Dynamic Questionnaire is a Go library that creates dynamic questionnaires.  
+Want to create a questionnaire for your Go project that adapts the next questions based on previous answers?
+Go Dynamic Questionnaire is what you're looking for!
 You can even provide recommendations or closing remarks based on the responses.
 
 Dynamic Questionnaire requires Go >= 1.20
@@ -40,7 +40,7 @@ func main() {
 
 ## TODOs
 
-- [ ] Configure GitHub actions to run tests (cf. https://docs.github.com/en/actions/how-tos/writing-workflows/building-and-testing/building-and-testing-go)
+- [ ] Configure GitHub actions to run tests (cf. <https://docs.github.com/en/actions/how-tos/writing-workflows/building-and-testing/building-and-testing-go>)
 - [ ] Add recommendations and closing remarks
 - [ ] Add a function to check if the questionnaire is finished
 - [ ] Add more examples
