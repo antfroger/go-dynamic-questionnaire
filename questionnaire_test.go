@@ -91,7 +91,7 @@ questions:
 
 				questions := q.Start()
 				Expect(questions).To(Equal([]gdq.Question{
-					{Id: "q1", Text: "Question 1?"},
+					{Id: "q1", Text: "Question 1?", Answers: []string{"Yes", "No"}},
 				}))
 			})
 		})
@@ -121,8 +121,8 @@ questions:
 
 				questions := q.Start()
 				Expect(questions).To(Equal([]gdq.Question{
-					{Id: "q1", Text: "Question 1?"},
-					{Id: "q2", Text: "Question 2?"},
+					{Id: "q1", Text: "Question 1?", Answers: []string{"Yes", "No"}},
+					{Id: "q2", Text: "Question 2?", Answers: []string{"Yes", "No"}},
 				}))
 			})
 		})
@@ -208,7 +208,7 @@ questions:
 					questions, err := q.Next(map[string]int{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(questions).To(Equal([]gdq.Question{
-						{Id: "q1", Text: "Question 1?"},
+						{Id: "q1", Text: "Question 1?", Answers: []string{"Answer 1", "Answer 2"}},
 					}))
 				})
 			})
@@ -218,8 +218,8 @@ questions:
 					questions, err := q.Next(map[string]int{"q1": 1})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(questions).To(Equal([]gdq.Question{
-						{Id: "q2", Text: "Question 2?", Condition: `answers["q1"] == 1`},
-						{Id: "q3", Text: "Question 3?", Condition: `answers["q1"] == 1`},
+						{Id: "q2", Text: "Question 2?", Condition: `answers["q1"] == 1`, Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
+						{Id: "q3", Text: "Question 3?", Condition: `answers["q1"] == 1`, Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
 					}))
 				})
 			})
@@ -230,13 +230,13 @@ questions:
 						questions, err := q.Next(map[string]int{"q1": 1})
 						Expect(err).ToNot(HaveOccurred())
 						Expect(questions).To(Equal([]gdq.Question{
-							{Id: "q2", Text: "Question 2?", Condition: `answers["q1"] == 1`},
-							{Id: "q3", Text: "Question 3?", Condition: `answers["q1"] == 1`},
+							{Id: "q2", Text: "Question 2?", Condition: `answers["q1"] == 1`, Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
+							{Id: "q3", Text: "Question 3?", Condition: `answers["q1"] == 1`, Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
 						}))
 
 						questions, err = q.Next(map[string]int{"q1": 1, "q2": 2, "q3": 2})
 						Expect(questions).To(Equal([]gdq.Question{
-							{Id: "q5", Text: "Question 5?", Condition: `answers["q2"] == 2 and answers["q3"] == 2`},
+							{Id: "q5", Text: "Question 5?", Condition: `answers["q2"] == 2 and answers["q3"] == 2`, Answers: []string{"Answer 1", "Answer 2"}},
 						}))
 						Expect(err).ToNot(HaveOccurred())
 					})

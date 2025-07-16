@@ -1,0 +1,28 @@
+questions:
+  - id: "career_stage"
+    text: "Where are you in your career?"
+    answers:
+      - "Student"
+      - "Junior Developer"
+      - "Senior Developer"
+      - "Manager"
+      - "Other"
+
+  - id: "tech_stack"
+    text: "How would you define your main skill?"
+    condition: 'answers["career_stage"] == 2 or answers["career_stage"] == 3'
+    answers:
+      - "Frontend"
+      - "Backend"
+      - "Full Stack"
+      - "DevOps"
+
+  - id: "company_size"
+    text: "What kind of company are you working on?"
+    condition: 'answers["career_stage"] >= 2'
+    answers:
+      - "Startup"
+      - "Small Company"
+      - "Large Company"
+      - "Enterprise"
+      - "Freelancer"

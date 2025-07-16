@@ -15,9 +15,10 @@ type (
 	}
 
 	Question struct {
-		Id        string `json:"id"`
-		Text      string `json:"text"`
-		Condition string `json:"condition,omitempty"`
+		Id        string   `json:"id"`
+		Text      string   `json:"text"`
+		Answers   []string `json:"answers"`
+		Condition string   `json:"condition,omitempty"`
 	}
 
 	config interface {

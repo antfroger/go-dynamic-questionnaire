@@ -1,0 +1,26 @@
+questions:
+  - id: "age_group"
+    text: "Are you over 18 years old?"
+    answers:
+      - "Yes"
+      - "No"
+
+  - id: "experience"
+    text: "Do you have programming experience?"
+    answers:
+      - "Yes"
+      - "No"
+
+  - id: "language_preference"
+    text: "Do you prefer statically typed languages?"
+    condition: 'answers["experience"] == 1'
+    answers:
+      - "Yes"
+      - "No"
+
+  - id: "alternative_path"
+    text: "Would you like to learn programming?"
+    condition: 'answers["experience"] == 2'
+    answers:
+      - "Yes"
+      - "No"
