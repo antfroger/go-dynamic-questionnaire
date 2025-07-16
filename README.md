@@ -7,6 +7,10 @@ You can even provide recommendations or closing remarks based on the responses.
 
 Dynamic Questionnaire requires Go >= 1.20
 
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/antfroger/go-dynamic-questionnaire)](https://pkg.go.dev/github.com/antfroger/go-dynamic-questionnaire)
+[![CI](https://github.com/antfroger/go-dynamic-questionnaire/actions/workflows/check.yml/badge.svg)](https://github.com/antfroger/go-dynamic-questionnaire/actions/workflows/check.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/antfroger/go-dynamic-questionnaire)](https://goreportcard.com/report/github.com/antfroger/go-dynamic-questionnaire)
+
 ## Installation
 
 Add this to your Go file
@@ -40,7 +44,6 @@ func main() {
 
 ## TODOs
 
-- [ ] Configure GitHub actions to run tests (cf. <https://docs.github.com/en/actions/how-tos/writing-workflows/building-and-testing/building-and-testing-go>)
 - [ ] Add recommendations and closing remarks
 - [ ] Add a function to check if the questionnaire is finished
 - [ ] Add more examples
