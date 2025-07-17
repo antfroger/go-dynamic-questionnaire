@@ -1,7 +1,5 @@
 package main
 
-// Here's a complete, yet basic, example of how to build a CLI application using this library
-
 import (
 	"fmt"
 	"log"

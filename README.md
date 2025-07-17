@@ -44,9 +44,9 @@ func main() {
 
 ## TODOs
 
+- [ ] Configure dependabot
 - [ ] Add recommendations and closing remarks
 - [ ] Add a function to check if the questionnaire is finished
-- [ ] Add more examples
 - [ ] Add loaders for different configuration formats
   - read the configuration from a JSON file
   - read the configuration from JSON bytes

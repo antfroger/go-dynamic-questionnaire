@@ -9,19 +9,6 @@ The library provides a flexible way to create interactive questionnaires with co
 
 **Use Case**: Interactive command-line questionnaire tool
 
-**Files**:
-
-- `main.go` - Complete CLI implementation
-- `tech.yaml` - Career and technology questionnaire
-- `yes-no.yaml` - Simple yes/no questionnaire example
-
-**Key Features**:
-
-- Command-line argument parsing
-- Interactive question prompting
-- Input validation
-- Results display
-
 **Run Example**:
 
 ```bash
@@ -30,3 +17,20 @@ go run main.go tech.yaml
 # or
 go run main.go yes-no.yaml
 ```
+
+![Demo](cli/demo.gif)
+
+### 2. REST API Server (Planned)
+
+**Use Case**: Web service providing questionnaire API endpoints
+
+**Endpoints**
+
+```
+GET  /questionnaires      - List available questionnaires
+POST /questionnaires/{id} - Get questions (with optional answers)
+```
+
+![Demo](rest-api/demo.gif)
+
+[More details about it here](./rest-api/README.md)
