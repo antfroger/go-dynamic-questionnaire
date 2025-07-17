@@ -7,6 +7,7 @@ toolchain go1.23.4
 require (
 	github.com/expr-lang/expr v1.17.5
 	github.com/goccy/go-yaml v1.18.0
+	// dev dependencies
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
 )

@@ -1,4 +1,4 @@
-name: Go checks
+name: Go CI
 
 on: [push, pull_request]
 

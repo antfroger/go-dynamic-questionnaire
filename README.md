@@ -44,7 +44,6 @@ func main() {
 
 ## TODOs
 
-- [ ] Configure dependabot
 - [ ] Add recommendations and closing remarks
 - [ ] Add a function to check if the questionnaire is finished
 - [ ] Add loaders for different configuration formats

@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: "gomod"
+    directories:
+      - "/"
+      - "/examples/*"
+    schedule:
+      interval: "weekly"
+    prefix: "[go dep] "
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      all-actions:
+        patterns: [ "*" ]
+    prefix: "[gha dep] "
