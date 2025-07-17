@@ -20,7 +20,7 @@ go run main.go yes-no.yaml
 
 ![Demo](cli/demo.gif)
 
-### 2. REST API Server (Planned)
+### 2. REST API Server
 
 **Use Case**: Web service providing questionnaire API endpoints
 
