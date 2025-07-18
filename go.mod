@@ -2,8 +2,6 @@ module github.com/antfroger/go-dynamic-questionnaire
 
 go 1.23.0
 
-toolchain go1.23.4
-
 require (
 	github.com/expr-lang/expr v1.17.5
 	github.com/goccy/go-yaml v1.18.0
