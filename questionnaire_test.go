@@ -33,11 +33,14 @@ questions:
 `)
 					tmpFile, err := os.CreateTemp("", "questionnaire-*.yaml")
 					Expect(err).To(BeNil())
-					defer os.Remove(tmpFile.Name())
+					defer func(name string) {
+						_ = os.Remove(name)
+					}(tmpFile.Name())
 
 					_, err = tmpFile.Write(content)
 					Expect(err).To(BeNil())
-					tmpFile.Close()
+					err = tmpFile.Close()
+					Expect(err).To(BeNil())
 
 					q, err := gdq.New(tmpFile.Name())
 					Expect(err).To(BeNil())
