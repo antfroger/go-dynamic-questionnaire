@@ -6,7 +6,8 @@ updates:
       - "/examples/*"
     schedule:
       interval: "weekly"
-    prefix: "[go dep] "
+    commit-message:
+      prefix: "[go dep] "
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -15,4 +16,5 @@ updates:
     groups:
       all-actions:
         patterns: [ "*" ]
-    prefix: "[gha dep] "
+    commit-message:
+      prefix: "[gha dep] "
