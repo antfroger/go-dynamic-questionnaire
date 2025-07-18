@@ -8,7 +8,7 @@ You can even provide recommendations or closing remarks based on the responses.
 Dynamic Questionnaire requires Go >= 1.20
 
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/antfroger/go-dynamic-questionnaire)](https://pkg.go.dev/github.com/antfroger/go-dynamic-questionnaire)
-[![CI](https://github.com/antfroger/go-dynamic-questionnaire/actions/workflows/check.yml/badge.svg)](https://github.com/antfroger/go-dynamic-questionnaire/actions/workflows/check.yml)
+[![CI](https://github.com/antfroger/go-dynamic-questionnaire/actions/workflows/go.yml/badge.svg)](https://github.com/antfroger/go-dynamic-questionnaire/actions/workflows/go.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/antfroger/go-dynamic-questionnaire)](https://goreportcard.com/report/github.com/antfroger/go-dynamic-questionnaire)
 
 ## Installation
