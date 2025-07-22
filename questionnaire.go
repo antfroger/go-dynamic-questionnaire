@@ -10,8 +10,7 @@ import (
 
 type (
 	Questionnaire struct {
-		Questions      []Question `yaml:"questions"`
-		askedQuestions map[string]bool
+		Questions []Question `yaml:"questions"`
 	}
 
 	Question struct {
@@ -31,9 +30,7 @@ type (
 // - reading the given YAML or JSON configuration (TODO)
 // - using the given configuration (TODO)
 func New[T config](config T) (*Questionnaire, error) {
-	q := &Questionnaire{
-		askedQuestions: make(map[string]bool),
-	}
+	q := &Questionnaire{}
 	// TODO: introduce a loader interface to handle different config types
 	// these loaders would be responsible for reading from files, parsing YAML/JSON, etc.
 	if err := loadConfig(config, q); err != nil {
@@ -77,8 +74,7 @@ func loadYamlConfig(data []byte, q *Questionnaire) error {
 func (q *Questionnaire) Start() []Question {
 	var nextQuestions []Question
 	for _, question := range q.Questions {
-		if question.Condition == "" && !q.askedQuestions[question.Id] {
-			q.askedQuestions[question.Id] = true
+		if question.Condition == "" {
 			nextQuestions = append(nextQuestions, question)
 		}
 	}
@@ -89,24 +85,25 @@ func (q *Questionnaire) Start() []Question {
 // Next returns the next batch of questions in the questionnaire.
 func (q *Questionnaire) Next(answers map[string]int) ([]Question, error) {
 	var nextQuestions []Question
-	for _, question := range q.Questions {
-		if q.askedQuestions[question.Id] {
-			continue
-		}
 
+	for _, question := range q.Questions {
 		show, err := shouldShowQuestion(question, answers)
 		if err != nil {
 			return nil, fmt.Errorf("failed to show question: %w", err)
 		}
 		if show {
-			q.askedQuestions[question.Id] = true
 			nextQuestions = append(nextQuestions, question)
 		}
 	}
 	return nextQuestions, nil
 }
 
+// shouldShowQuestion determines if a question should be shown based on its condition and the provided answers.
 func shouldShowQuestion(q Question, answers map[string]int) (bool, error) {
+	if isQuestionAnswered(q, answers) {
+		return false, nil
+	}
+
 	if q.Condition == "" {
 		if len(answers) == 0 {
 			return true, nil
@@ -114,7 +111,10 @@ func shouldShowQuestion(q Question, answers map[string]int) (bool, error) {
 		return false, nil
 	}
 
-	env := map[string]interface{}{"answers": answers}
+	env := map[string]interface{}{
+		"answers": answers,
+	}
+
 	program, err := expr.Compile(q.Condition, expr.Env(env))
 	if err != nil {
 		return false, fmt.Errorf("failed to compile condition expression: %w", err)
@@ -128,4 +128,10 @@ func shouldShowQuestion(q Question, answers map[string]int) (bool, error) {
 		return false, fmt.Errorf("condition '%s' does not return a boolean", q.Condition)
 	}
 	return show, nil
+}
+
+// isQuestionAnswered checks if a question has been answered based on the provided answers map.
+func isQuestionAnswered(question Question, answers map[string]int) bool {
+	_, exists := answers[question.Id]
+	return exists
 }

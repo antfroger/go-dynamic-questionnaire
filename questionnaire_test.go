@@ -202,6 +202,14 @@ questions:
       - "Answer 1"
       - "Answer 2"
     condition: 'answers["q2"] == 2 and answers["q3"] == 2'
+
+  - id: "q6"
+    text: "Question 6?"
+    answers:
+      - "Answer 1"
+      - "Answer 2"
+      - "Answer 3"
+    condition: 'answers["q2"] in 1..3'
 `))
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -240,6 +248,7 @@ questions:
 						questions, err = q.Next(map[string]int{"q1": 1, "q2": 2, "q3": 2})
 						Expect(questions).To(Equal([]gdq.Question{
 							{Id: "q5", Text: "Question 5?", Condition: `answers["q2"] == 2 and answers["q3"] == 2`, Answers: []string{"Answer 1", "Answer 2"}},
+							{Id: "q6", Text: "Question 6?", Condition: `answers["q2"] in 1..3`, Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
 						}))
 						Expect(err).ToNot(HaveOccurred())
 					})

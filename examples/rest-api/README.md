@@ -66,8 +66,15 @@ curl -s -X POST http://localhost:8081/questionnaires/survey | jq
 
 ```bash
 curl -s -X POST http://localhost:8081/questionnaires/survey \
+  -H "Content-Type: application/json" | jq
+
+curl -s -X POST http://localhost:8081/questionnaires/survey \
   -H "Content-Type: application/json" \
-  -d '{"answers": {"satisfaction": 1, "support_quality": 2}}' | jq
+  -d '{"answers": {"satisfaction": 1, "support_quality": 4, "usage_frequency": 2}}' | jq
+  
+curl -s -X POST http://localhost:8081/questionnaires/survey \
+  -H "Content-Type: application/json" \
+  -d '{"answers": {"satisfaction": 1, "support_quality": 4, "usage_frequency": 2, "recommend": 2, "support_channel": 1, "business_impact": 3}}' | jq
 ```
 
 ## 🎯 Complete Usage Guide
