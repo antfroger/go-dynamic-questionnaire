@@ -10,6 +10,7 @@ Dynamic Questionnaire requires Go >= 1.20
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/antfroger/go-dynamic-questionnaire)](https://pkg.go.dev/github.com/antfroger/go-dynamic-questionnaire)
 [![CI](https://github.com/antfroger/go-dynamic-questionnaire/actions/workflows/go.yml/badge.svg)](https://github.com/antfroger/go-dynamic-questionnaire/actions/workflows/go.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/antfroger/go-dynamic-questionnaire)](https://goreportcard.com/report/github.com/antfroger/go-dynamic-questionnaire)
+[![Release](https://img.shields.io/github/release/antfroger/go-dynamic-questionnaire.svg?style=flat-square)](https://github.com/antfroger/go-dynamic-questionnaire/releases)
 
 ## Installation
 
@@ -39,13 +40,17 @@ func main() {
 
     // After collecting answers, call Next to get the next set of questions based on the answers
     questions, err := q.Next(answers)
+
+    // You can continue calling NextQuestions with the answers until there are no more questions
+    if q.Completed() {
+        // Do something
+    }
 }
 ```
 
 ## TODOs
 
 - [ ] Add recommendations and closing remarks
-- [ ] Add a function to check if the questionnaire is finished
 - [ ] Add loaders for different configuration formats
   - read the configuration from a JSON file
   - read the configuration from JSON bytes

@@ -100,26 +100,23 @@ func handleQuestions(c *gin.Context) {
 	var questions []gdq.Question
 	var message string
 
-	if len(r.Answers) == 0 {
-		questions = q.Start()
-		message = "Questionnaire started"
-	} else {
-		questions, err = q.Next(r.Answers)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to get next questions: %v", err)})
-			return
-		}
+	questions, err = q.Next(r.Answers)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to get next questions: %v", err)})
+		return
+	}
 
-		if len(questions) == 0 {
-			message = "Questionnaire completed"
-		} else {
-			message = "Next questions retrieved"
-		}
+	if len(r.Answers) == 0 {
+		message = "Questionnaire started"
+	} else if q.Completed() {
+		message = "Questionnaire completed"
+	} else {
+		message = "Next questions retrieved"
 	}
 
 	response := QuestionsResponse{
 		Questions: questions,
-		Completed: len(questions) == 0,
+		Completed: q.Completed(),
 		Message:   message,
 	}
 

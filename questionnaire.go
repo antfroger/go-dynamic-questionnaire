@@ -10,14 +10,15 @@ import (
 
 type (
 	Questionnaire struct {
-		Questions []Question `yaml:"questions"`
+		Questions   []Question `yaml:"questions"`
+		isCompleted bool
 	}
 
 	Question struct {
-		Id        string   `json:"id"`
-		Text      string   `json:"text"`
-		Answers   []string `json:"answers"`
-		Condition string   `json:"condition,omitempty"`
+		Id        string
+		Text      string
+		Answers   []string
+		Condition string
 	}
 
 	config interface {
@@ -95,6 +96,10 @@ func (q *Questionnaire) Next(answers map[string]int) ([]Question, error) {
 			nextQuestions = append(nextQuestions, question)
 		}
 	}
+	if len(nextQuestions) == 0 {
+		q.isCompleted = true
+	}
+
 	return nextQuestions, nil
 }
 
@@ -134,4 +139,9 @@ func shouldShowQuestion(q Question, answers map[string]int) (bool, error) {
 func isQuestionAnswered(question Question, answers map[string]int) bool {
 	_, exists := answers[question.Id]
 	return exists
+}
+
+// Completed returns true if the questionnaire has been completed, false otherwise.
+func (q *Questionnaire) Completed() bool {
+	return q.isCompleted
 }

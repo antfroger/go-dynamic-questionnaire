@@ -313,4 +313,56 @@ questions:
 			})
 		})
 	})
+
+	Describe("Completed", func() {
+		var q *gdq.Questionnaire
+
+		BeforeEach(func() {
+			var err error
+			q, err = gdq.New([]byte(`
+questions:
+  - id: "q1"
+    text: "Question 1?"
+    answers:
+      - "Answer 1"
+      - "Answer 2"
+  - id: "q2"
+    text: "Question 2?"
+    answers:
+      - "Answer 1"
+      - "Answer 2"
+    condition: 'answers["q1"] == 1'
+`))
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		When("the questionnaire has just been created", func() {
+			It("should return false", func() {
+				Expect(q.Completed()).To(BeFalse())
+			})
+		})
+
+		When("the questionnaire has been started but not finished", func() {
+			It("should return false", func() {
+				questions := q.Start()
+				Expect(questions).ToNot(BeEmpty())
+				Expect(q.Completed()).To(BeFalse())
+
+				questions, err := q.Next(map[string]int{"q1": 1})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(questions).ToNot(BeEmpty())
+				Expect(q.Completed()).To(BeFalse())
+			})
+		})
+
+		When("the questionnaire has been completed", func() {
+			It("should return true when no more questions are available", func() {
+				questions, err := q.Next(map[string]int{"q1": 2, "q2": 1})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(questions).To(BeEmpty())
+				Expect(q.Completed()).To(BeTrue())
+			})
+		})
+	})
+
 })
