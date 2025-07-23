@@ -33,9 +33,11 @@ type (
 		Answers map[string]int `json:"answers,omitempty"`
 	}
 	QuestionsResponse struct {
-		Questions []gdq.Question `json:"questions"`
-		Completed bool           `json:"completed"`
-		Message   string         `json:"message,omitempty"`
+		Questions      []gdq.Question      `json:"questions"`
+		ClosingRemarks []gdq.ClosingRemark `json:"closing_remarks,omitempty"`
+		Completed      bool                `json:"completed"`
+		Progress       *gdq.Progress       `json:"progress,omitempty"`
+		Message        string              `json:"message"`
 	}
 )
 
@@ -97,30 +99,28 @@ func handleQuestions(c *gin.Context) {
 		r.Answers = make(map[string]int)
 	}
 
-	var questions []gdq.Question
-	var message string
-
-	questions, err = q.Next(r.Answers)
+	response, err := q.Next(r.Answers)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to get next questions: %v", err)})
 		return
 	}
 
+	message := "Next questions retrieved"
 	if len(r.Answers) == 0 {
 		message = "Questionnaire started"
-	} else if q.Completed() {
+	} else if response.Completed {
 		message = "Questionnaire completed"
-	} else {
-		message = "Next questions retrieved"
 	}
 
-	response := QuestionsResponse{
-		Questions: questions,
-		Completed: q.Completed(),
-		Message:   message,
+	apiResponse := QuestionsResponse{
+		Questions:      response.Questions,
+		ClosingRemarks: response.ClosingRemarks,
+		Completed:      response.Completed,
+		Progress:       response.Progress,
+		Message:        message,
 	}
 
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, apiResponse)
 }
 
 func loadQuestionnaire(id string) (gdq.Questionnaire, error) {

@@ -10,19 +10,16 @@ import (
 
 type (
 	Questionnaire interface {
-		Start() []Question
-		Next(answers map[string]int) ([]Question, error)
-		Completed() bool
-		ClosingRemarks(answers map[string]int) ([]ClosingRemark, error)
+		Next(answers map[string]int) (*Response, error)
 	}
 
 	// questionnaire represents a dynamic questionnaire that users can answer.
 	// It contains a list of questions loaded from the YAML data and can determine which questions to show based on user answers.
 	questionnaire struct {
-		Questions   []question      `yaml:"questions"`
-		Remarks     []closingRemark `yaml:"closing_remarks"`
-		isCompleted bool
+		Questions []question      `yaml:"questions"`
+		Remarks   []closingRemark `yaml:"closing_remarks"`
 	}
+
 	// question represents a single question in the questionnaire.
 	question struct {
 		Id        string   `yaml:"id"`
@@ -30,6 +27,7 @@ type (
 		Answers   []string `yaml:"answers"`
 		Condition string   `yaml:"condition,omitempty"`
 	}
+
 	// closingRemark represents a closing remark that can be shown when the questionnaire is completed.
 	closingRemark struct {
 		Id        string `yaml:"id"`
@@ -48,6 +46,20 @@ type (
 	ClosingRemark struct {
 		Id   string
 		Text string
+	}
+
+	// Response represents the response to a questionnaire, including the next set of questions and any closing remarks.
+	Response struct {
+		Questions      []Question      `json:"questions"`
+		ClosingRemarks []ClosingRemark `json:"closing_remarks,omitempty"`
+		Completed      bool            `json:"completed"`
+		Progress       *Progress       `json:"progress,omitempty"`
+	}
+
+	// Progress represents the progress of the questionnaire, indicating how many questions have been answered and how many are left.
+	Progress struct {
+		Current int `json:"current"`
+		Total   int `json:"total"`
 	}
 
 	// config is a generic interface that can be used to pass either a file path (string) or YAML content ([]byte).
@@ -101,20 +113,36 @@ func loadYamlConfig(data []byte, q *questionnaire) error {
 	return nil
 }
 
-// Start starts the questionnaire by returning the first batch of questions.
-func (q *questionnaire) Start() []Question {
-	var nextQuestions []Question
-	for _, qu := range q.Questions {
-		if qu.Condition == "" {
-			nextQuestions = append(nextQuestions, Question{Id: qu.Id, Text: qu.Text, Answers: qu.Answers})
+// Next retrieves the next set of questions based on the provided answers.
+// It also calculates the progress, determines if the questionnaire is completed, and if so, retrieves the closing remarks.
+func (q *questionnaire) Next(answers map[string]int) (*Response, error) {
+	questions, err := q.getNextQuestions(answers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get next questions: %w", err)
+	}
+
+	completed := len(questions) == 0
+	var remarks []ClosingRemark
+
+	if completed {
+		remarks, err = q.getClosingRemarks(answers)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get next closing remarks: %w", err)
 		}
 	}
 
-	return nextQuestions
+	progress := q.calculateProgress(answers, len(questions))
+
+	return &Response{
+		Questions:      questions,
+		ClosingRemarks: remarks,
+		Completed:      completed,
+		Progress:       progress,
+	}, nil
 }
 
-// Next returns the next batch of questions in the questionnaire.
-func (q *questionnaire) Next(answers map[string]int) ([]Question, error) {
+// getNextQuestions retrieves the next set of questions based on the provided answers.
+func (q *questionnaire) getNextQuestions(answers map[string]int) ([]Question, error) {
 	var nextQuestions []Question
 
 	for _, qu := range q.Questions {
@@ -126,11 +154,40 @@ func (q *questionnaire) Next(answers map[string]int) ([]Question, error) {
 			nextQuestions = append(nextQuestions, Question{Id: qu.Id, Text: qu.Text, Answers: qu.Answers})
 		}
 	}
-	if len(nextQuestions) == 0 {
-		q.isCompleted = true
-	}
 
 	return nextQuestions, nil
+}
+
+// getClosingRemarks retrieves the closing remarks based on the provided answers.
+func (q *questionnaire) getClosingRemarks(answers map[string]int) ([]ClosingRemark, error) {
+	var remarks []ClosingRemark
+
+	for _, remark := range q.Remarks {
+		show, err := shouldShowClosingRemark(remark, answers)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate closing remark condition: %w", err)
+		}
+		if show {
+			remarks = append(remarks, ClosingRemark{Id: remark.Id, Text: remark.Text})
+		}
+	}
+
+	return remarks, nil
+}
+
+// calculateProgress calculates the progress of the questionnaire based on the provided answers and the number of available questions.
+func (q *questionnaire) calculateProgress(answers map[string]int, availableQuestions int) *Progress {
+	if availableQuestions == 0 {
+		return nil
+	}
+
+	current := len(answers)
+	total := current + availableQuestions
+
+	return &Progress{
+		Current: current,
+		Total:   total,
+	}
 }
 
 // shouldShowQuestion determines if a question should be shown based on its condition and the provided answers.
@@ -169,33 +226,6 @@ func shouldShowQuestion(q question, answers map[string]int) (bool, error) {
 func isQuestionAnswered(question question, answers map[string]int) bool {
 	_, exists := answers[question.Id]
 	return exists
-}
-
-// Completed returns true if the questionnaire has been completed, false otherwise.
-func (q *questionnaire) Completed() bool {
-	return q.isCompleted
-}
-
-// ClosingRemarks returns the closing remarks that should be shown based on the provided answers.
-// It only returns remarks if the questionnaire has been completed.
-func (q *questionnaire) ClosingRemarks(answers map[string]int) ([]ClosingRemark, error) {
-	if !q.Completed() {
-		return []ClosingRemark{}, nil
-	}
-
-	var remarks []ClosingRemark
-
-	for _, remark := range q.Remarks {
-		show, err := shouldShowClosingRemark(remark, answers)
-		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate closing remark condition: %w", err)
-		}
-		if show {
-			remarks = append(remarks, ClosingRemark{Id: remark.Id, Text: remark.Text})
-		}
-	}
-
-	return remarks, nil
 }
 
 // shouldShowClosingRemark determines if a closing remark should be shown based on its condition and the provided answers.

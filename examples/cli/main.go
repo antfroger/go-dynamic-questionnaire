@@ -27,25 +27,38 @@ func main() {
 }
 
 func askQuestions(questionnaire gdq.Questionnaire) map[string]int {
-	// Start with the first batch of questions
-	questions := questionnaire.Start()
 	answers := make(map[string]int)
 
-	for len(questions) > 0 {
-		for _, question := range questions {
-			answer := askQuestion(question)
-			answers[question.Id] = answer
-		}
-
-		// Get the next batch of questions based on answers
-		nextQuestions, err := questionnaire.Next(answers)
+	for {
+		response, err := questionnaire.Next(answers)
 		if err != nil {
 			log.Fatalf("Failed to get next questions: %v", err)
 		}
 
-		questions = nextQuestions
+		if response.Completed {
+			displayClosingRemarks(response.ClosingRemarks)
+			break
+		}
+
+		displayProgress(response.Progress)
+
+		for _, question := range response.Questions {
+			answer := askQuestion(question)
+			answers[question.Id] = answer
+		}
 	}
+
 	return answers
+}
+
+func displayProgress(progress *gdq.Progress) {
+	if progress == nil {
+		return
+	}
+
+	fmt.Printf("\n📊 Progress: %d/%d questions answered\n", progress.Current, progress.Total)
+	percentage := float64(progress.Current) / float64(progress.Total) * 100
+	fmt.Printf("🔄 %.0f%% complete\n", percentage)
 }
 
 func askQuestion(question gdq.Question) int {
@@ -69,9 +82,23 @@ func askQuestion(question gdq.Question) int {
 	}
 }
 
+func displayClosingRemarks(remarks []gdq.ClosingRemark) {
+	if len(remarks) == 0 {
+		return
+	}
+
+	fmt.Println("\n" + strings.Repeat("=", 40))
+	fmt.Println("QUESTIONNAIRE COMPLETE!")
+	fmt.Println(strings.Repeat("=", 40))
+
+	for _, remark := range remarks {
+		fmt.Printf("💬 %s\n", remark.Text)
+	}
+}
+
 func displayResults(answers map[string]int) {
 	fmt.Println("\n" + strings.Repeat("=", 40))
-	fmt.Println("QUESTIONNAIRE RESULTS")
+	fmt.Println("YOUR ANSWERS")
 	fmt.Println(strings.Repeat("=", 40))
 
 	for id, answer := range answers {

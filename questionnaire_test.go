@@ -72,35 +72,20 @@ questions:
 		})
 	})
 
-	Describe("Start", func() {
-		When("the questionnaire has just been loaded", func() {
-			It("should return the first batch of questions", func() {
-				q, err := gdq.New([]byte(`
-questions:
-  - id: "q1"
-    text: "Question 1?"
-    answers:
-      - "Yes"
-      - "No"
-  - id: "q2"
-    text: "Question 2?"
-    answers:
-      - "Yes"
-      - "No"
-    condition: "answers['q1'] == 1"
-`))
-				Expect(err).ToNot(HaveOccurred())
-
-				questions := q.Start()
-				Expect(questions).To(Equal([]gdq.Question{
-					{Id: "q1", Text: "Question 1?", Answers: []string{"Yes", "No"}},
-				}))
-			})
+	Describe("Next", func() {
+		var (
+			config string
+			q      gdq.Questionnaire
+			err    error
+		)
+		JustBeforeEach(func() {
+			q, err = gdq.New([]byte(config))
+			Expect(err).ToNot(HaveOccurred())
 		})
 
-		When("the questionnaire contains several questions without conditions", func() {
-			It("should return all of these questions", func() {
-				q, err := gdq.New([]byte(`
+		When("no answers are provided", func() {
+			BeforeEach(func() {
+				config = `
 questions:
   - id: "q1"
     text: "Question 1?"
@@ -117,61 +102,68 @@ questions:
     answers:
       - "Yes"
       - "No"
-    condition: "answers['q1'] == 1 and answers['q2'] == 1"
-`))
-				Expect(err).ToNot(HaveOccurred())
+    condition: "answers['q1'] == 1"`
+			})
 
-				questions := q.Start()
-				Expect(questions).To(Equal([]gdq.Question{
+			It("should return the first batch of questions", func() {
+				r, err := q.Next(map[string]int{})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(r.Questions).To(Equal([]gdq.Question{
 					{Id: "q1", Text: "Question 1?", Answers: []string{"Yes", "No"}},
 					{Id: "q2", Text: "Question 2?", Answers: []string{"Yes", "No"}},
 				}))
+				Expect(r.Completed).To(BeFalse())
+				Expect(r.ClosingRemarks).To(BeEmpty())
+				Expect(r.Progress).To(Equal(&gdq.Progress{Current: 0, Total: 2}))
 			})
 		})
 
 		When("the questionnaire is empty", func() {
-			It("should return an empty slice", func() {
-				q, err := gdq.New([]byte(``))
-				Expect(err).ToNot(HaveOccurred())
+			BeforeEach(func() {
+				config = ``
+			})
 
-				questions := q.Start()
-				Expect(questions).To(BeEmpty())
+			It("should return completed with no questions", func() {
+				r, err := q.Next(map[string]int{})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(r.Questions).To(BeEmpty())
+				Expect(r.Completed).To(BeTrue())
+				Expect(r.Progress).To(BeNil())
 			})
 		})
 
 		When("the questionnaire has no question without conditions", func() {
-			It("should return an empty slice", func() {
-				q, err := gdq.New([]byte(`
+			BeforeEach(func() {
+				config = `
 questions:
   - id: "q1"
     text: "Question 1?"
     answers:
       - "Answer 1"
       - "Answer 2"
-    condition: "false"
-`))
-				Expect(err).ToNot(HaveOccurred())
+    condition: "false"`
+			})
 
-				questions := q.Start()
-				Expect(questions).To(BeEmpty())
+			It("should return completed with no questions", func() {
+				r, err := q.Next(map[string]int{})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(r.Questions).To(BeEmpty())
+				Expect(r.Completed).To(BeTrue())
 			})
 		})
-	})
 
-	Describe("Next", func() {
-		var q gdq.Questionnaire
-
-		Context("the questionnaire is valid", func() {
+		When("one or more questions have been answered", func() {
 			BeforeEach(func() {
-				var err error
-				q, err = gdq.New([]byte(`
+				config = `
 questions:
   - id: "q1"
     text: "Question 1?"
     answers:
       - "Answer 1"
       - "Answer 2"
-
   - id: "q2"
     text: "Question 2?"
     answers:
@@ -179,211 +171,107 @@ questions:
       - "Answer 2"
       - "Answer 3"
     condition: 'answers["q1"] == 1'
-
   - id: "q3"
     text: "Question 3?"
     answers:
       - "Answer 1"
       - "Answer 2"
       - "Answer 3"
-    condition: 'answers["q1"] == 1'
+    condition: 'answers["q1"] == 1'`
+			})
 
-  - id: "q4"
-    text: "Question 4?"
-    answers:
-      - "Answer 1"
-      - "Answer 2"
-    condition: 'answers["q1"] == 2'
-
-  - id: "q5"
-    text: "Question 5?"
-    answers:
-      - "Answer 1"
-      - "Answer 2"
-    condition: 'answers["q2"] == 2 and answers["q3"] == 2'
-
-  - id: "q6"
-    text: "Question 6?"
-    answers:
-      - "Answer 1"
-      - "Answer 2"
-      - "Answer 3"
-    condition: 'answers["q2"] in 1..3'
-`))
+			It("should return the next questions depending on the answer", func() {
+				r, err := q.Next(map[string]int{"q1": 1})
 				Expect(err).ToNot(HaveOccurred())
-			})
-
-			When("no answers are given", func() {
-				It("should return the first batch of questions", func() {
-					questions, err := q.Next(map[string]int{})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(questions).To(Equal([]gdq.Question{
-						{Id: "q1", Text: "Question 1?", Answers: []string{"Answer 1", "Answer 2"}},
-					}))
-				})
-			})
-
-			When("one question has been answered", func() {
-				It("should return the next questions depending on the answer", func() {
-					questions, err := q.Next(map[string]int{"q1": 1})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(questions).To(Equal([]gdq.Question{
-						{Id: "q2", Text: "Question 2?", Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
-						{Id: "q3", Text: "Question 3?", Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
-					}))
-				})
-			})
-
-			When("several questions have been answered", func() {
-				When("more questions are available", func() {
-					It("should return the next questions depending on the answers", func() {
-						questions, err := q.Next(map[string]int{"q1": 1})
-						Expect(err).ToNot(HaveOccurred())
-						Expect(questions).To(Equal([]gdq.Question{
-							{Id: "q2", Text: "Question 2?", Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
-							{Id: "q3", Text: "Question 3?", Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
-						}))
-
-						questions, err = q.Next(map[string]int{"q1": 1, "q2": 2, "q3": 2})
-						Expect(questions).To(Equal([]gdq.Question{
-							{Id: "q5", Text: "Question 5?", Answers: []string{"Answer 1", "Answer 2"}},
-							{Id: "q6", Text: "Question 6?", Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
-						}))
-						Expect(err).ToNot(HaveOccurred())
-					})
-				})
-
-				When("the questionnaire has reached its end", func() {
-					It("should return an empty response", func() {
-						questions, err := q.Next(map[string]int{"q4": 1})
-						Expect(questions).To(BeEmpty())
-						Expect(err).ToNot(HaveOccurred())
-					})
-				})
-
-				When("the given answers are not valid", func() {
-					It("should return an empty response", func() {
-						questions, err := q.Next(map[string]int{"q1": 10})
-						Expect(questions).To(BeEmpty())
-						Expect(err).ToNot(HaveOccurred())
-					})
-				})
+				Expect(r.Questions).To(Equal([]gdq.Question{
+					{Id: "q2", Text: "Question 2?", Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
+					{Id: "q3", Text: "Question 3?", Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
+				}))
+				Expect(r.Completed).To(BeFalse())
+				Expect(r.Progress).To(Equal(&gdq.Progress{Current: 1, Total: 3}))
 			})
 		})
 
-		Context("the questionnaire has invalid conditions", func() {
-			When("the condition is not a valid expression", func() {
-				It("should return an error", func() {
-					q, err := gdq.New([]byte(`
+		When("the questionnaire reaches completion", func() {
+			BeforeEach(func() {
+				config = `
+questions:
+  - id: "q1"
+    text: "Question 1?"
+    answers:
+      - "Answer 1"
+      - "Answer 2"`
+			})
+
+			It("should return completed with no questions", func() {
+				r, err := q.Next(map[string]int{"q1": 1})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(r.Questions).To(BeEmpty())
+				Expect(r.Completed).To(BeTrue())
+				Expect(r.Progress).To(BeNil())
+			})
+		})
+
+		When("the questionnaire has invalid conditions", func() {
+			When("condition is not a valid expression", func() {
+				BeforeEach(func() {
+					config = `
 questions:
   - id: "q1"
     text: "Question 1?"
     answers:
       - "Answer 1"
       - "Answer 2"
-    condition: '1 : 2'
-`))
-					Expect(err).ToNot(HaveOccurred())
+    condition: '1 : 2'`
+				})
 
-					questions, err := q.Next(map[string]int{})
-					Expect(questions).To(BeNil())
+				It("should return an error", func() {
+					_, err = q.Next(map[string]int{})
 					Expect(err).To(MatchError(ContainSubstring("failed to show question: failed to compile condition expression: ")))
 				})
 			})
 
-			When("the condition does not return a boolean", func() {
-				It("should return an error", func() {
-					q, err := gdq.New([]byte(`
+			When("condition does not return a boolean", func() {
+				BeforeEach(func() {
+					config = `
 questions:
   - id: "q1"
     text: "Question 1?"
     answers:
       - "Answer 1"
       - "Answer 2"
-    condition: '123'
-`))
-					Expect(err).ToNot(HaveOccurred())
-
-					questions, err := q.Next(map[string]int{})
-					Expect(questions).To(BeNil())
-					Expect(err).To(MatchError("failed to show question: condition '123' does not return a boolean"))
+    condition: '123'`
 				})
 
+				It("should return an error", func() {
+					_, err = q.Next(map[string]int{})
+					Expect(err).To(MatchError("failed to get next questions: failed to show question: condition '123' does not return a boolean"))
+				})
 			})
 		})
 	})
 
-	Describe("Completed", func() {
-		var q gdq.Questionnaire
-
-		BeforeEach(func() {
-			var err error
-			q, err = gdq.New([]byte(`
-questions:
-  - id: "q1"
-    text: "Question 1?"
-    answers:
-      - "Answer 1"
-      - "Answer 2"
-  - id: "q2"
-    text: "Question 2?"
-    answers:
-      - "Answer 1"
-      - "Answer 2"
-    condition: 'answers["q1"] == 1'
-`))
+	Describe("Closing Remarks", func() {
+		var (
+			config string
+			q      gdq.Questionnaire
+			err    error
+		)
+		JustBeforeEach(func() {
+			q, err = gdq.New([]byte(config))
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		When("the questionnaire has just been created", func() {
-			It("should return false", func() {
-				Expect(q.Completed()).To(BeFalse())
-			})
-		})
-
-		When("the questionnaire has been started but not finished", func() {
-			It("should return false", func() {
-				questions := q.Start()
-				Expect(questions).ToNot(BeEmpty())
-				Expect(q.Completed()).To(BeFalse())
-
-				questions, err := q.Next(map[string]int{"q1": 1})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(questions).ToNot(BeEmpty())
-				Expect(q.Completed()).To(BeFalse())
-			})
-		})
-
-		When("the questionnaire has been completed", func() {
-			It("should return true when no more questions are available", func() {
-				questions, err := q.Next(map[string]int{"q1": 2, "q2": 1})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(questions).To(BeEmpty())
-				Expect(q.Completed()).To(BeTrue())
-			})
-		})
-	})
-
-	Describe("ClosingRemarks", func() {
-		var q gdq.Questionnaire
-
-		Context("the questionnaire has closing remarks", func() {
+		When("questionnaire has closing remarks", func() {
 			BeforeEach(func() {
-				var err error
-				q, err = gdq.New([]byte(`
+				config = `
 questions:
   - id: "q1"
     text: "Do you like programming?"
     answers:
       - "Yes"
       - "No"
-  - id: "q2"
-    text: "Which language do you prefer?"
-    answers:
-      - "Go"
-      - "Python"
-      - "JavaScript"
-    condition: 'answers["q1"] == 1'
 
 closing_remarks:
   - id: "general"
@@ -391,86 +279,75 @@ closing_remarks:
   - id: "programming_lover"
     text: "Great to hear you love programming!"
     condition: 'answers["q1"] == 1'
-  - id: "go_developer"
-    text: "Go is an excellent choice for backend development!"
-    condition: 'answers["q1"] == 1 and answers["q2"] == 1'
   - id: "not_interested"
     text: "That's okay, programming isn't for everyone."
-    condition: 'answers["q1"] == 2'
-`))
+    condition: 'answers["q1"] == 2'`
+			})
+
+			It("should return remarks when questionnaire is completed", func() {
+				r, err := q.Next(map[string]int{"q1": 1})
+
 				Expect(err).ToNot(HaveOccurred())
+				Expect(r.Questions).To(BeEmpty())
+				Expect(r.Completed).To(BeTrue())
+				Expect(r.ClosingRemarks).To(Equal([]gdq.ClosingRemark{
+					{Id: "general", Text: "Thank you for completing the questionnaire!"},
+					{Id: "programming_lover", Text: "Great to hear you love programming!"},
+				}))
 			})
 
-			When("the questionnaire is not completed", func() {
-				It("should return an empty slice", func() {
-					remarks, err := q.ClosingRemarks(map[string]int{"q1": 1})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(remarks).To(BeEmpty())
-				})
-			})
-
-			When("the questionnaire is completed", func() {
-				It("should return remarks without conditions", func() {
-					answers := map[string]int{"q1": 2}
-					_, err := q.Next(answers)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(q.Completed()).To(BeTrue())
-
-					remarks, err := q.ClosingRemarks(answers)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(remarks).To(Equal([]gdq.ClosingRemark{
-						{Id: "general", Text: "Thank you for completing the questionnaire!"},
-						{Id: "not_interested", Text: "That's okay, programming isn't for everyone."},
-					}))
-				})
-
-				It("should return remarks that match the conditions", func() {
-					answers := map[string]int{"q1": 1, "q2": 1}
-					_, err := q.Next(answers)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(q.Completed()).To(BeTrue())
-
-					remarks, err := q.ClosingRemarks(answers)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(remarks).To(Equal([]gdq.ClosingRemark{
-						{Id: "general", Text: "Thank you for completing the questionnaire!"},
-						{Id: "programming_lover", Text: "Great to hear you love programming!"},
-						{Id: "go_developer", Text: "Go is an excellent choice for backend development!"},
-					}))
-				})
-			})
-		})
-
-		Context("the questionnaire has no closing remarks", func() {
-			BeforeEach(func() {
-				var err error
-				q, err = gdq.New([]byte(`
+			It("should not return remarks when questionnaire is not completed", func() {
+				q, err := gdq.New([]byte(`
 questions:
   - id: "q1"
     text: "Question 1?"
     answers:
       - "Yes"
       - "No"
+  - id: "q2"
+    text: "Question 2?"
+    answers:
+      - "Yes"
+      - "No"
+    condition: 'answers["q1"] == 1'
+
+closing_remarks:
+  - id: "general"
+    text: "Thank you!"
 `))
 				Expect(err).ToNot(HaveOccurred())
-			})
 
-			It("should return an empty slice", func() {
-				answers := map[string]int{"q1": 1}
-				_, err := q.Next(answers)
+				response, err := q.Next(map[string]int{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(q.Completed()).To(BeTrue())
-
-				remarks, err := q.ClosingRemarks(answers)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(remarks).To(BeEmpty())
+				Expect(response.Completed).To(BeFalse())
+				Expect(response.ClosingRemarks).To(BeEmpty())
 			})
 		})
 
-		Context("the questionnaire has invalid closing remark conditions", func() {
-			When("the condition is not a valid expression", func() {
-				It("should return an error when questionnaire is completed", func() {
-					q, err := gdq.New([]byte(`
+		When("questionnaire has no closing remarks", func() {
+			BeforeEach(func() {
+				config = `
+questions:
+  - id: "q1"
+    text: "Question 1?"
+    answers:
+      - "Yes"
+      - "No"`
+			})
+
+			It("should return empty remarks when completed", func() {
+				r, err := q.Next(map[string]int{"q1": 1})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(r.Completed).To(BeTrue())
+				Expect(r.ClosingRemarks).To(BeEmpty())
+			})
+		})
+
+		When("questionnaire has invalid closing remark conditions", func() {
+			When("condition is not a valid expression", func() {
+				BeforeEach(func() {
+					config = `
 questions:
   - id: "q1"
     text: "Question 1?"
@@ -481,24 +358,18 @@ questions:
 closing_remarks:
   - id: "invalid"
     text: "Invalid remark"
-    condition: '1 : 2'
-`))
-					Expect(err).ToNot(HaveOccurred())
+    condition: '1 : 2'`
+				})
 
-					answers := map[string]int{"q1": 1}
-					_, err = q.Next(answers)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(q.Completed()).To(BeTrue())
-
-					remarks, err := q.ClosingRemarks(answers)
-					Expect(remarks).To(BeNil())
+				It("should return an error", func() {
+					_, err = q.Next(map[string]int{"q1": 1})
 					Expect(err).To(MatchError(ContainSubstring("failed to evaluate closing remark condition: failed to compile condition expression: ")))
 				})
 			})
 
-			When("the condition does not return a boolean", func() {
-				It("should return an error when questionnaire is completed", func() {
-					q, err := gdq.New([]byte(`
+			When("condition does not return a boolean", func() {
+				BeforeEach(func() {
+					config = `
 questions:
   - id: "q1"
     text: "Question 1?"
@@ -509,21 +380,71 @@ questions:
 closing_remarks:
   - id: "non_boolean"
     text: "Non-boolean remark"
-    condition: '123'
-`))
-					Expect(err).ToNot(HaveOccurred())
+    condition: '123'`
+				})
 
-					answers := map[string]int{"q1": 1}
-					_, err = q.Next(answers)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(q.Completed()).To(BeTrue())
-
-					remarks, err := q.ClosingRemarks(answers)
-					Expect(remarks).To(BeNil())
-					Expect(err).To(MatchError("failed to evaluate closing remark condition: condition '123' does not return a boolean"))
+				It("should return an error", func() {
+					_, err = q.Next(map[string]int{"q1": 1})
+					Expect(err).To(MatchError("failed to get next closing remarks: failed to evaluate closing remark condition: condition '123' does not return a boolean"))
 				})
 			})
 		})
 	})
 
+	Describe("Progress Tracking", func() {
+		var (
+			config string
+			q      gdq.Questionnaire
+			err    error
+		)
+		JustBeforeEach(func() {
+			q, err = gdq.New([]byte(config))
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		When("questionnaire has multiple conditional paths", func() {
+			BeforeEach(func() {
+				config = `
+questions:
+  - id: "q1"
+    text: "Path selector?"
+    answers:
+      - "Path A"
+      - "Path B"
+  - id: "q2a"
+    text: "Question 2A?"
+    answers:
+      - "Yes"
+      - "No"
+    condition: 'answers["q1"] == 1'
+  - id: "q3a"
+    text: "Question 3A?"
+    answers:
+      - "Yes"
+      - "No"
+    condition: 'answers["q1"] == 1'
+  - id: "q2b"
+    text: "Question 2B?"
+    answers:
+      - "Option 1"
+      - "Option 2"
+    condition: 'answers["q1"] == 2'`
+			})
+
+			It("should calculate progress correctly for different paths", func() {
+				response, err := q.Next(map[string]int{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response.Progress).To(Equal(&gdq.Progress{Current: 0, Total: 1}))
+
+				response, err = q.Next(map[string]int{"q1": 1})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response.Progress).To(Equal(&gdq.Progress{Current: 1, Total: 3}))
+
+				response, err = q.Next(map[string]int{"q1": 1, "q2a": 1, "q3a": 2})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response.Completed).To(BeTrue())
+				Expect(response.Progress).To(BeNil())
+			})
+		})
+	})
 })
