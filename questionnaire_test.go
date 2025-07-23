@@ -364,4 +364,166 @@ questions:
 		})
 	})
 
+	Describe("ClosingRemarks", func() {
+		var q gdq.Questionnaire
+
+		Context("the questionnaire has closing remarks", func() {
+			BeforeEach(func() {
+				var err error
+				q, err = gdq.New([]byte(`
+questions:
+  - id: "q1"
+    text: "Do you like programming?"
+    answers:
+      - "Yes"
+      - "No"
+  - id: "q2"
+    text: "Which language do you prefer?"
+    answers:
+      - "Go"
+      - "Python"
+      - "JavaScript"
+    condition: 'answers["q1"] == 1'
+
+closing_remarks:
+  - id: "general"
+    text: "Thank you for completing the questionnaire!"
+  - id: "programming_lover"
+    text: "Great to hear you love programming!"
+    condition: 'answers["q1"] == 1'
+  - id: "go_developer"
+    text: "Go is an excellent choice for backend development!"
+    condition: 'answers["q1"] == 1 and answers["q2"] == 1'
+  - id: "not_interested"
+    text: "That's okay, programming isn't for everyone."
+    condition: 'answers["q1"] == 2'
+`))
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			When("the questionnaire is not completed", func() {
+				It("should return an empty slice", func() {
+					remarks, err := q.ClosingRemarks(map[string]int{"q1": 1})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(remarks).To(BeEmpty())
+				})
+			})
+
+			When("the questionnaire is completed", func() {
+				It("should return remarks without conditions", func() {
+					answers := map[string]int{"q1": 2}
+					_, err := q.Next(answers)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(q.Completed()).To(BeTrue())
+
+					remarks, err := q.ClosingRemarks(answers)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(remarks).To(Equal([]gdq.ClosingRemark{
+						{Id: "general", Text: "Thank you for completing the questionnaire!"},
+						{Id: "not_interested", Text: "That's okay, programming isn't for everyone."},
+					}))
+				})
+
+				It("should return remarks that match the conditions", func() {
+					answers := map[string]int{"q1": 1, "q2": 1}
+					_, err := q.Next(answers)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(q.Completed()).To(BeTrue())
+
+					remarks, err := q.ClosingRemarks(answers)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(remarks).To(Equal([]gdq.ClosingRemark{
+						{Id: "general", Text: "Thank you for completing the questionnaire!"},
+						{Id: "programming_lover", Text: "Great to hear you love programming!"},
+						{Id: "go_developer", Text: "Go is an excellent choice for backend development!"},
+					}))
+				})
+			})
+		})
+
+		Context("the questionnaire has no closing remarks", func() {
+			BeforeEach(func() {
+				var err error
+				q, err = gdq.New([]byte(`
+questions:
+  - id: "q1"
+    text: "Question 1?"
+    answers:
+      - "Yes"
+      - "No"
+`))
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should return an empty slice", func() {
+				answers := map[string]int{"q1": 1}
+				_, err := q.Next(answers)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(q.Completed()).To(BeTrue())
+
+				remarks, err := q.ClosingRemarks(answers)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(remarks).To(BeEmpty())
+			})
+		})
+
+		Context("the questionnaire has invalid closing remark conditions", func() {
+			When("the condition is not a valid expression", func() {
+				It("should return an error when questionnaire is completed", func() {
+					q, err := gdq.New([]byte(`
+questions:
+  - id: "q1"
+    text: "Question 1?"
+    answers:
+      - "Answer 1"
+      - "Answer 2"
+
+closing_remarks:
+  - id: "invalid"
+    text: "Invalid remark"
+    condition: '1 : 2'
+`))
+					Expect(err).ToNot(HaveOccurred())
+
+					answers := map[string]int{"q1": 1}
+					_, err = q.Next(answers)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(q.Completed()).To(BeTrue())
+
+					remarks, err := q.ClosingRemarks(answers)
+					Expect(remarks).To(BeNil())
+					Expect(err).To(MatchError(ContainSubstring("failed to evaluate closing remark condition: failed to compile condition expression: ")))
+				})
+			})
+
+			When("the condition does not return a boolean", func() {
+				It("should return an error when questionnaire is completed", func() {
+					q, err := gdq.New([]byte(`
+questions:
+  - id: "q1"
+    text: "Question 1?"
+    answers:
+      - "Answer 1"
+      - "Answer 2"
+
+closing_remarks:
+  - id: "non_boolean"
+    text: "Non-boolean remark"
+    condition: '123'
+`))
+					Expect(err).ToNot(HaveOccurred())
+
+					answers := map[string]int{"q1": 1}
+					_, err = q.Next(answers)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(q.Completed()).To(BeTrue())
+
+					remarks, err := q.ClosingRemarks(answers)
+					Expect(remarks).To(BeNil())
+					Expect(err).To(MatchError("failed to evaluate closing remark condition: condition '123' does not return a boolean"))
+				})
+			})
+		})
+	})
+
 })

@@ -13,12 +13,14 @@ type (
 		Start() []Question
 		Next(answers map[string]int) ([]Question, error)
 		Completed() bool
+		ClosingRemarks(answers map[string]int) ([]ClosingRemark, error)
 	}
 
 	// questionnaire represents a dynamic questionnaire that users can answer.
 	// It contains a list of questions loaded from the YAML data and can determine which questions to show based on user answers.
 	questionnaire struct {
-		Questions   []question `yaml:"questions"`
+		Questions   []question      `yaml:"questions"`
+		Remarks     []closingRemark `yaml:"closing_remarks"`
 		isCompleted bool
 	}
 	// question represents a single question in the questionnaire.
@@ -28,12 +30,24 @@ type (
 		Answers   []string `yaml:"answers"`
 		Condition string   `yaml:"condition,omitempty"`
 	}
+	// closingRemark represents a closing remark that can be shown when the questionnaire is completed.
+	closingRemark struct {
+		Id        string `yaml:"id"`
+		Text      string `yaml:"text"`
+		Condition string `yaml:"condition,omitempty"`
+	}
 
 	// Question represents a question that can be presented to the user.
 	Question struct {
 		Id      string
 		Text    string
 		Answers []string
+	}
+
+	// ClosingRemark represents a closing remark that can be presented to the user when the questionnaire is completed.
+	ClosingRemark struct {
+		Id   string
+		Text string
 	}
 
 	// config is a generic interface that can be used to pass either a file path (string) or YAML content ([]byte).
@@ -160,4 +174,51 @@ func isQuestionAnswered(question question, answers map[string]int) bool {
 // Completed returns true if the questionnaire has been completed, false otherwise.
 func (q *questionnaire) Completed() bool {
 	return q.isCompleted
+}
+
+// ClosingRemarks returns the closing remarks that should be shown based on the provided answers.
+// It only returns remarks if the questionnaire has been completed.
+func (q *questionnaire) ClosingRemarks(answers map[string]int) ([]ClosingRemark, error) {
+	if !q.Completed() {
+		return []ClosingRemark{}, nil
+	}
+
+	var remarks []ClosingRemark
+
+	for _, remark := range q.Remarks {
+		show, err := shouldShowClosingRemark(remark, answers)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate closing remark condition: %w", err)
+		}
+		if show {
+			remarks = append(remarks, ClosingRemark{Id: remark.Id, Text: remark.Text})
+		}
+	}
+
+	return remarks, nil
+}
+
+// shouldShowClosingRemark determines if a closing remark should be shown based on its condition and the provided answers.
+func shouldShowClosingRemark(remark closingRemark, answers map[string]int) (bool, error) {
+	if remark.Condition == "" {
+		return true, nil
+	}
+
+	env := map[string]interface{}{
+		"answers": answers,
+	}
+
+	program, err := expr.Compile(remark.Condition, expr.Env(env))
+	if err != nil {
+		return false, fmt.Errorf("failed to compile condition expression: %w", err)
+	}
+	result, err := expr.Run(program, env)
+	if err != nil {
+		return false, err
+	}
+	show, ok := result.(bool)
+	if !ok {
+		return false, fmt.Errorf("condition '%s' does not return a boolean", remark.Condition)
+	}
+	return show, nil
 }

@@ -26,3 +26,31 @@ questions:
       - "Large Company"
       - "Enterprise"
       - "Freelancer"
+
+closing_remarks:
+  - id: "welcome"
+    text: "Thank you for sharing your career information with us!"
+
+  - id: "student_encouragement"
+    text: "Keep learning and building projects! The tech industry offers many exciting opportunities."
+    condition: 'answers["career_stage"] == 1'
+
+  - id: "developer_advice"
+    text: "Great to connect with another developer! Your experience is valuable to the community."
+    condition: 'answers["career_stage"] == 2 or answers["career_stage"] == 3'
+
+  - id: "startup_culture"
+    text: "Startup culture can be fast-paced and rewarding. Make sure to maintain work-life balance!"
+    condition: 'answers["company_size"] == 1'
+
+  - id: "freelancer_tip"
+    text: "Freelancing offers great flexibility! Don't forget to network and keep your skills updated."
+    condition: 'answers["company_size"] == 5'
+
+  - id: "enterprise_insight"
+    text: "Enterprise environments provide stability and learning opportunities at scale."
+    condition: 'answers["company_size"] == 4'
+
+  - id: "management_path"
+    text: "Leadership in tech requires balancing technical knowledge with people skills. Keep growing both!"
+    condition: 'answers["career_stage"] == 4'

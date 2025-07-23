@@ -43,14 +43,14 @@ func main() {
 
     // You can continue calling NextQuestions with the answers until there are no more questions
     if q.Completed() {
-        // Do something
+        closingRemarks := q.ClosingRemarks()
+        // Do something with the recommendations or closing remarks
     }
 }
 ```
 
 ## TODOs
 
-- [ ] Add recommendations and closing remarks
 - [ ] Add loaders for different configuration formats
   - read the configuration from a JSON file
   - read the configuration from JSON bytes
