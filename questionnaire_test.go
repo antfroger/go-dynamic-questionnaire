@@ -44,8 +44,7 @@ questions:
 
 					q, err := gdq.New(tmpFile.Name())
 					Expect(err).To(BeNil())
-					Expect(q).To(BeAssignableToTypeOf(&gdq.Questionnaire{}))
-
+					Expect(q).NotTo(BeNil())
 				})
 			})
 		})
@@ -61,7 +60,7 @@ questions:
       - "Answer 2"
 `))
 				Expect(err).To(BeNil())
-				Expect(q).To(BeAssignableToTypeOf(&gdq.Questionnaire{}))
+				Expect(q).NotTo(BeNil())
 			})
 
 			It("should handle invalid YAML content", func() {
@@ -160,7 +159,7 @@ questions:
 	})
 
 	Describe("Next", func() {
-		var q *gdq.Questionnaire
+		var q gdq.Questionnaire
 
 		Context("the questionnaire is valid", func() {
 			BeforeEach(func() {
@@ -229,8 +228,8 @@ questions:
 					questions, err := q.Next(map[string]int{"q1": 1})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(questions).To(Equal([]gdq.Question{
-						{Id: "q2", Text: "Question 2?", Condition: `answers["q1"] == 1`, Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
-						{Id: "q3", Text: "Question 3?", Condition: `answers["q1"] == 1`, Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
+						{Id: "q2", Text: "Question 2?", Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
+						{Id: "q3", Text: "Question 3?", Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
 					}))
 				})
 			})
@@ -241,14 +240,14 @@ questions:
 						questions, err := q.Next(map[string]int{"q1": 1})
 						Expect(err).ToNot(HaveOccurred())
 						Expect(questions).To(Equal([]gdq.Question{
-							{Id: "q2", Text: "Question 2?", Condition: `answers["q1"] == 1`, Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
-							{Id: "q3", Text: "Question 3?", Condition: `answers["q1"] == 1`, Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
+							{Id: "q2", Text: "Question 2?", Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
+							{Id: "q3", Text: "Question 3?", Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
 						}))
 
 						questions, err = q.Next(map[string]int{"q1": 1, "q2": 2, "q3": 2})
 						Expect(questions).To(Equal([]gdq.Question{
-							{Id: "q5", Text: "Question 5?", Condition: `answers["q2"] == 2 and answers["q3"] == 2`, Answers: []string{"Answer 1", "Answer 2"}},
-							{Id: "q6", Text: "Question 6?", Condition: `answers["q2"] in 1..3`, Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
+							{Id: "q5", Text: "Question 5?", Answers: []string{"Answer 1", "Answer 2"}},
+							{Id: "q6", Text: "Question 6?", Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
 						}))
 						Expect(err).ToNot(HaveOccurred())
 					})
@@ -315,7 +314,7 @@ questions:
 	})
 
 	Describe("Completed", func() {
-		var q *gdq.Questionnaire
+		var q gdq.Questionnaire
 
 		BeforeEach(func() {
 			var err error

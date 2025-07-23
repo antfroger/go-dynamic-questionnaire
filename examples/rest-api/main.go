@@ -123,7 +123,7 @@ func handleQuestions(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-func loadQuestionnaire(id string) (*gdq.Questionnaire, error) {
+func loadQuestionnaire(id string) (gdq.Questionnaire, error) {
 	path, err := getConfig(id)
 	if err != nil {
 		return nil, err

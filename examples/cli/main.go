@@ -26,7 +26,7 @@ func main() {
 	displayResults(answers)
 }
 
-func askQuestions(questionnaire *gdq.Questionnaire) map[string]int {
+func askQuestions(questionnaire gdq.Questionnaire) map[string]int {
 	// Start with the first batch of questions
 	questions := questionnaire.Start()
 	answers := make(map[string]int)
