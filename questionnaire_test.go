@@ -2,6 +2,7 @@ package go_dynamic_questionnaire_test
 
 import (
 	"errors"
+	"math"
 	"os"
 
 	gdq "github.com/antfroger/go-dynamic-questionnaire"
@@ -68,6 +69,84 @@ questions:
 				Expect(err).To(MatchError(ContainSubstring(`failed to parse questionnaire config`)))
 				var yamlErr *yaml.UnexpectedNodeTypeError
 				Expect(errors.As(err, &yamlErr)).To(BeTrue())
+			})
+		})
+
+		When("questionnaire has duplicate question IDs", func() {
+			It("should fail to load", func() {
+				_, err := gdq.New([]byte(`
+questions:
+  - id: "duplicate"
+    text: "Question 1"
+    answers: ["Yes", "No"]
+  - id: "duplicate"
+    text: "Question 2"
+    answers: ["Maybe", "Perhaps"]
+`))
+				Expect(err).To(MatchError("questionnaire validation failed: validation error (duplicate_question_id): duplicated question ID"))
+			})
+
+			It("should fail to load with multiple duplicates", func() {
+				_, err := gdq.New([]byte(`
+questions:
+  - id: "q1"
+    text: "Question 1"
+    answers: ["Yes", "No"]
+  - id: "q2"
+    text: "Question 2"
+    answers: ["Maybe", "Perhaps"]
+  - id: "q1"
+    text: "Duplicate of Q1"
+    answers: ["Option A", "Option B"]
+`))
+				Expect(err).To(MatchError("questionnaire validation failed: validation error (duplicate_question_id): duplicated question ID"))
+			})
+		})
+
+		When("questions have empty answer arrays", func() {
+			It("should fail to load", func() {
+				_, err := gdq.New([]byte(`
+questions:
+  - id: "empty"
+    text: "Question with no answers"
+    answers: []
+`))
+				Expect(err).To(MatchError("questionnaire validation failed: validation error (empty_answers): question has no answer options"))
+			})
+
+			It("should fail to load when answers field is completely missing", func() {
+				_, err := gdq.New([]byte(`
+questions:
+  - id: "missing_answers"
+    text: "Question with missing answers field"
+`))
+				Expect(err).To(MatchError("questionnaire validation failed: validation error (empty_answers): question has no answer options"))
+			})
+		})
+
+		When("questionnaire is completely empty", func() {
+			It("should load successfully", func() {
+				q, err := gdq.New([]byte(``))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(q).ToNot(BeNil())
+			})
+
+			It("should load successfully with empty questions array", func() {
+				q, err := gdq.New([]byte(`questions: []`))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(q).ToNot(BeNil())
+			})
+		})
+
+		When("questionnaire has empty question IDs", func() {
+			It("should return a graceful error", func() {
+				_, err := gdq.New([]byte(`
+questions:
+  - id: ""
+    text: "Question with empty ID"
+    answers: ["Yes", "No"]
+`))
+				Expect(err).To(MatchError("questionnaire validation failed: validation error (empty_question_id): questionnaire contains a question with no ID"))
 			})
 		})
 	})
@@ -385,7 +464,7 @@ closing_remarks:
 
 				It("should return an error", func() {
 					_, err = q.Next(map[string]int{"q1": 1})
-					Expect(err).To(MatchError("failed to get next closing remarks: failed to evaluate closing remark condition: condition '123' does not return a boolean"))
+					Expect(err).To(MatchError("failed to get closing remarks: failed to evaluate closing remark condition: condition '123' does not return a boolean"))
 				})
 			})
 		})
@@ -444,6 +523,70 @@ questions:
 				Expect(err).ToNot(HaveOccurred())
 				Expect(response.Completed).To(BeTrue())
 				Expect(response.Progress).To(BeNil())
+			})
+		})
+	})
+
+	Describe("Answer Validation", func() {
+		var (
+			q   gdq.Questionnaire
+			err error
+		)
+		JustBeforeEach(func() {
+			q, err = gdq.New([]byte(`
+questions:
+  - id: "satisfaction"
+    text: "How satisfied are you?"
+    answers:
+      - "Very Satisfied"
+      - "Satisfied"
+      - "Neutral"
+  - id: "recommend"
+    text: "Would you recommend us?"
+    answers:
+      - "Yes"
+      - "No"
+    condition: 'answers["satisfaction"] <= 2'`))
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		When("answers contain invalid question IDs", func() {
+			It("should return a validation error for the 1st invalid question", func() {
+				_, err := q.Next(map[string]int{
+					"nonexistent_question_1": 1,
+					"nonexistent_question_2": 1,
+				})
+				Expect(err).To(MatchError("invalid answers provided: validation error (invalid_question_id): question does not exist"))
+			})
+		})
+
+		When("answers contain out-of-range values", func() {
+			It("should return a validation error for value too high", func() {
+				_, err := q.Next(map[string]int{
+					"satisfaction": 5,
+				})
+				Expect(err).To(MatchError("invalid answers provided: validation error (invalid_answer_range): answer is out of range"))
+			})
+
+			It("should return a validation error for zero value", func() {
+				_, err := q.Next(map[string]int{
+					"satisfaction": 0,
+				})
+				Expect(err).To(MatchError("invalid answers provided: validation error (invalid_answer_range): answer is out of range"))
+			})
+
+			It("should return a validation error for negative value", func() {
+				_, err := q.Next(map[string]int{
+					"satisfaction": -1,
+				})
+				Expect(err).To(MatchError("invalid answers provided: validation error (invalid_answer_range): answer is out of range"))
+			})
+
+			It("should handle large answer values gracefully", func() {
+				_, err := q.Next(map[string]int{
+					"satisfaction": math.MaxInt32,
+				})
+				Expect(err).To(MatchError("invalid answers provided: validation error (invalid_answer_range): answer is out of range"))
 			})
 		})
 	})

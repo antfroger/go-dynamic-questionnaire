@@ -13,6 +13,11 @@ type (
 		Next(answers map[string]int) (*Response, error)
 	}
 
+	// config is a generic interface that can be used to pass either a file path (string) or YAML content ([]byte).
+	config interface {
+		string | []byte
+	}
+
 	// questionnaire represents a dynamic questionnaire that users can answer.
 	// It contains a list of questions loaded from the YAML data and can determine which questions to show based on user answers.
 	questionnaire struct {
@@ -35,6 +40,14 @@ type (
 		Condition string `yaml:"condition,omitempty"`
 	}
 
+	// Response represents the response to a questionnaire, including the next set of questions and any closing remarks.
+	Response struct {
+		Questions      []Question      `json:"questions"`
+		ClosingRemarks []ClosingRemark `json:"closing_remarks,omitempty"`
+		Completed      bool            `json:"completed"`
+		Progress       *Progress       `json:"progress,omitempty"`
+	}
+
 	// Question represents a question that can be presented to the user.
 	Question struct {
 		Id      string
@@ -48,23 +61,10 @@ type (
 		Text string
 	}
 
-	// Response represents the response to a questionnaire, including the next set of questions and any closing remarks.
-	Response struct {
-		Questions      []Question      `json:"questions"`
-		ClosingRemarks []ClosingRemark `json:"closing_remarks,omitempty"`
-		Completed      bool            `json:"completed"`
-		Progress       *Progress       `json:"progress,omitempty"`
-	}
-
 	// Progress represents the progress of the questionnaire, indicating how many questions have been answered and how many are left.
 	Progress struct {
 		Current int `json:"current"`
 		Total   int `json:"total"`
-	}
-
-	// config is a generic interface that can be used to pass either a file path (string) or YAML content ([]byte).
-	config interface {
-		string | []byte
 	}
 )
 
@@ -78,6 +78,9 @@ func New[T config](config T) (Questionnaire, error) {
 	// these loaders would be responsible for reading from files, parsing YAML/JSON, etc.
 	if err := loadConfig(config, q); err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+	if err := q.validateQuestionnaireIntegrity(); err != nil {
+		return nil, fmt.Errorf("questionnaire validation failed: %w", err)
 	}
 
 	return q, nil
@@ -113,9 +116,33 @@ func loadYamlConfig(data []byte, q *questionnaire) error {
 	return nil
 }
 
+// validateQuestionnaireIntegrity validates the questionnaire configuration at load time
+func (q *questionnaire) validateQuestionnaireIntegrity() error {
+	questionIDs := make(map[string]bool)
+
+	for _, question := range q.Questions {
+		if question.Id == "" {
+			return emptyQuestionIDError()
+		}
+		if questionIDs[question.Id] {
+			return duplicateQuestionIDError(question.Id)
+		}
+		if len(question.Answers) == 0 {
+			return emptyAnswersError(question.Id)
+		}
+		questionIDs[question.Id] = true
+	}
+
+	return nil
+}
+
 // Next retrieves the next set of questions based on the provided answers.
 // It also calculates the progress, determines if the questionnaire is completed, and if so, retrieves the closing remarks.
 func (q *questionnaire) Next(answers map[string]int) (*Response, error) {
+	if err := q.validateAnswers(answers); err != nil {
+		return nil, fmt.Errorf("invalid answers provided: %w", err)
+	}
+
 	questions, err := q.getNextQuestions(answers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get next questions: %w", err)
@@ -127,7 +154,7 @@ func (q *questionnaire) Next(answers map[string]int) (*Response, error) {
 	if completed {
 		remarks, err = q.getClosingRemarks(answers)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get next closing remarks: %w", err)
+			return nil, fmt.Errorf("failed to get closing remarks: %w", err)
 		}
 	}
 
@@ -139,6 +166,40 @@ func (q *questionnaire) Next(answers map[string]int) (*Response, error) {
 		Completed:      completed,
 		Progress:       progress,
 	}, nil
+}
+
+// validateAnswers performs comprehensive validation on the provided answers
+func (q *questionnaire) validateAnswers(answers map[string]int) error {
+	for questionID, answer := range answers {
+		if err := q.validateSingleAnswer(questionID, answer); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateSingleAnswer validates a single answer for a specific question
+func (q *questionnaire) validateSingleAnswer(questionID string, answer int) error {
+	question := q.findQuestionByID(questionID)
+	if question == nil {
+		return invalidQuestionIDError(questionID, answer)
+	}
+
+	if answer < 1 || answer > len(question.Answers) {
+		return invalidAnswerRangeError(question, answer)
+	}
+
+	return nil
+}
+
+// findQuestionByID finds a question by its ID
+func (q *questionnaire) findQuestionByID(id string) *question {
+	for i := range q.Questions {
+		if q.Questions[i].Id == id {
+			return &q.Questions[i]
+		}
+	}
+	return nil
 }
 
 // getNextQuestions retrieves the next set of questions based on the provided answers.
