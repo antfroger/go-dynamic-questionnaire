@@ -215,9 +215,12 @@ yamlData := []byte(`questions: ...`)
 q, err := questionnaire.New(yamlData)
 ```
 
-## TODOs
+## Areas for Improvement
 
-- [ ] Add loaders for different configuration formats
-  - read the configuration from a JSON file
-  - read the configuration from JSON bytes
-  - pass pre-configured questions
+- Question Dependencies: More explicit dependency tracking
+- Add loaders for different configuration formats
+  Introduce a loader interface to handle different config types. These loaders would be responsible for reading from files, parsing YAML/JSON, etc. 
+    - read the configuration from a JSON file
+    - read the configuration from JSON bytes
+    - pass pre-configured questions
+- Performance optimizations for large questionnaires
