@@ -100,10 +100,11 @@ type (
 	// question represents a single question in the questionnaire configuration.
 	// Questions can have conditional logic that determines when they should be shown.
 	question struct {
-		Id        string   `yaml:"id"`                  // Unique identifier for the question
-		Text      string   `yaml:"text"`                // The question text shown to users
-		Answers   []string `yaml:"answers"`             // List of possible answer choices
-		Condition string   `yaml:"condition,omitempty"` // Optional expression to determine if question should be shown
+		Id        string   `yaml:"id"`                   // Unique identifier for the question
+		Text      string   `yaml:"text"`                 // The question text shown to users
+		Answers   []string `yaml:"answers"`              // List of possible answer choices
+		DependsOn []string `yaml:"depends_on,omitempty"` // Explicit list of question IDs this question depends on (required if condition is used)
+		Condition string   `yaml:"condition,omitempty"`  // Optional expression to determine if question should be shown
 	}
 
 	// closingRemark represents a message shown when the questionnaire is completed.
@@ -269,6 +270,7 @@ func loadYamlConfig(data []byte, q *questionnaire) error {
 func (q *questionnaire) validateQuestionnaireIntegrity() error {
 	questionIDs := make(map[string]bool)
 
+	// basic validation and collect question IDs
 	for _, question := range q.Questions {
 		if question.Id == "" {
 			return emptyQuestionIDError()
@@ -280,6 +282,86 @@ func (q *questionnaire) validateQuestionnaireIntegrity() error {
 			return emptyAnswersError(question.Id)
 		}
 		questionIDs[question.Id] = true
+	}
+
+	if err := q.detectInvalidDependencies(questionIDs); err != nil {
+		return err
+	}
+
+	if err := q.detectCircularDependencies(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// detectInvalidDependencies checks if all dependencies declared in questions are valid and in sync between condition and depends_on.
+func (q *questionnaire) detectInvalidDependencies(questionIDs map[string]bool) error {
+	for _, question := range q.Questions {
+		for _, depID := range question.DependsOn {
+			if !questionIDs[depID] {
+				return invalidDependencyError(question.Id, depID)
+			}
+		}
+
+		if question.Condition != "" || len(question.DependsOn) > 0 {
+			if err := q.validateConditionDependencies(question); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// validateConditionDependencies validates that condition references match declared dependencies.
+// This ensures consistency between explicit dependencies and condition logic.
+func (q *questionnaire) validateConditionDependencies(question question) error {
+	if !question.matchingDependencies() {
+		return conditionDependencyMismatchError(question.Id, question.extractQuestionIDsFromCondition(), question.DependsOn)
+	}
+
+	return nil
+}
+
+// detectCircularDependencies detects circular dependencies using depth-first search.
+// Returns an error if any circular dependencies are found.
+func (q *questionnaire) detectCircularDependencies() error {
+	visited := make(map[string]bool)
+	recursionStack := make(map[string]bool)
+
+	var hasCycle func(string, []string) error
+	hasCycle = func(questionID string, path []string) error {
+		if recursionStack[questionID] {
+			// Found a cycle - add the current questionID to complete the cycle
+			cycle := append(path, questionID)
+			return circularDependencyError(cycle)
+		}
+
+		if visited[questionID] {
+			return nil
+		}
+
+		visited[questionID] = true
+		recursionStack[questionID] = true
+
+		question := q.findQuestionByID(questionID)
+		if question != nil {
+			for _, depID := range question.DependsOn {
+				if err := hasCycle(depID, append(path, questionID)); err != nil {
+					return err
+				}
+			}
+		}
+
+		recursionStack[questionID] = false
+		return nil
+	}
+
+	// Check for cycles starting from each question
+	for _, question := range q.Questions {
+		if err := hasCycle(question.Id, []string{}); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -419,11 +501,12 @@ func (q *questionnaire) findQuestionByID(id string) *question {
 }
 
 // getNextQuestions retrieves the next set of questions based on the provided answers.
+// It considers both explicit dependencies and conditional logic to determine which questions to show.
 func (q *questionnaire) getNextQuestions(answers map[string]int) ([]Question, error) {
 	var nextQuestions []Question
 
 	for _, qu := range q.Questions {
-		show, err := shouldShowQuestion(qu, answers)
+		show, err := q.shouldShowQuestion(qu, answers)
 		if err != nil {
 			return nil, fmt.Errorf("failed to show question: %w", err)
 		}
@@ -435,12 +518,62 @@ func (q *questionnaire) getNextQuestions(answers map[string]int) ([]Question, er
 	return nextQuestions, nil
 }
 
+// shouldShowQuestion determines if a question should be shown based on its condition and the provided answers.
+func (q *questionnaire) shouldShowQuestion(question question, answers map[string]int) (bool, error) {
+	if !q.areDependenciesSatisfied(question, answers) {
+		return false, nil
+	}
+
+	if q.isQuestionAnswered(question, answers) {
+		return false, nil
+	}
+
+	if question.Condition == "" {
+		return true, nil
+	}
+
+	env := map[string]interface{}{
+		"answers": answers,
+	}
+
+	program, err := expr.Compile(question.Condition, expr.Env(env))
+	if err != nil {
+		return false, fmt.Errorf("failed to compile condition expression: %w", err)
+	}
+	result, err := expr.Run(program, env)
+	if err != nil {
+		return false, err
+	}
+	show, ok := result.(bool)
+	if !ok {
+		return false, fmt.Errorf("condition '%s' does not return a boolean", question.Condition)
+	}
+	return show, nil
+}
+
+// areDependenciesSatisfied checks if all dependencies for a question are satisfied.
+// A dependency is satisfied if the depended-upon question has been answered.
+func (q *questionnaire) areDependenciesSatisfied(question question, answers map[string]int) bool {
+	for _, depID := range question.DependsOn {
+		if _, answered := answers[depID]; !answered {
+			return false
+		}
+	}
+	return true
+}
+
+// isQuestionAnswered checks if a question has been answered based on the provided answers map.
+func (q *questionnaire) isQuestionAnswered(question question, answers map[string]int) bool {
+	_, exists := answers[question.Id]
+	return exists
+}
+
 // getClosingRemarks retrieves the closing remarks based on the provided answers.
 func (q *questionnaire) getClosingRemarks(answers map[string]int) ([]ClosingRemark, error) {
 	var remarks []ClosingRemark
 
 	for _, remark := range q.Remarks {
-		show, err := shouldShowClosingRemark(remark, answers)
+		show, err := q.shouldShowClosingRemark(remark, answers)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate closing remark condition: %w", err)
 		}
@@ -452,61 +585,8 @@ func (q *questionnaire) getClosingRemarks(answers map[string]int) ([]ClosingRema
 	return remarks, nil
 }
 
-// calculateProgress calculates the progress of the questionnaire based on the provided answers and the number of available questions.
-func (q *questionnaire) calculateProgress(answers map[string]int, availableQuestions int) *Progress {
-	if availableQuestions == 0 {
-		return nil
-	}
-
-	current := len(answers)
-	total := current + availableQuestions
-
-	return &Progress{
-		Current: current,
-		Total:   total,
-	}
-}
-
-// shouldShowQuestion determines if a question should be shown based on its condition and the provided answers.
-func shouldShowQuestion(q question, answers map[string]int) (bool, error) {
-	if isQuestionAnswered(q, answers) {
-		return false, nil
-	}
-
-	if q.Condition == "" {
-		if len(answers) == 0 {
-			return true, nil
-		}
-		return false, nil
-	}
-
-	env := map[string]interface{}{
-		"answers": answers,
-	}
-
-	program, err := expr.Compile(q.Condition, expr.Env(env))
-	if err != nil {
-		return false, fmt.Errorf("failed to compile condition expression: %w", err)
-	}
-	result, err := expr.Run(program, env)
-	if err != nil {
-		return false, err
-	}
-	show, ok := result.(bool)
-	if !ok {
-		return false, fmt.Errorf("condition '%s' does not return a boolean", q.Condition)
-	}
-	return show, nil
-}
-
-// isQuestionAnswered checks if a question has been answered based on the provided answers map.
-func isQuestionAnswered(question question, answers map[string]int) bool {
-	_, exists := answers[question.Id]
-	return exists
-}
-
 // shouldShowClosingRemark determines if a closing remark should be shown based on its condition and the provided answers.
-func shouldShowClosingRemark(remark closingRemark, answers map[string]int) (bool, error) {
+func (q *questionnaire) shouldShowClosingRemark(remark closingRemark, answers map[string]int) (bool, error) {
 	if remark.Condition == "" {
 		return true, nil
 	}
@@ -528,4 +608,74 @@ func shouldShowClosingRemark(remark closingRemark, answers map[string]int) (bool
 		return false, fmt.Errorf("condition '%s' does not return a boolean", remark.Condition)
 	}
 	return show, nil
+}
+
+// calculateProgress calculates the progress of the questionnaire based on the provided answers and the number of available questions.
+func (q *questionnaire) calculateProgress(answers map[string]int, availableQuestions int) *Progress {
+	if availableQuestions == 0 {
+		return nil
+	}
+
+	current := len(answers)
+	total := current + availableQuestions
+
+	return &Progress{
+		Current: current,
+		Total:   total,
+	}
+}
+
+// matchingDependencies checks if the question's condition references match its declared dependencies.
+func (q question) matchingDependencies() bool {
+	referencedIDs := q.extractQuestionIDsFromCondition()
+
+	if len(referencedIDs) != len(q.DependsOn) {
+		return false
+	}
+
+	for _, refID := range referencedIDs {
+		if !contains(q.DependsOn, refID) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// extractQuestionIDsFromCondition extracts question IDs referenced in a condition expression.
+// This is a simple implementation that looks for patterns like answers["question_id"] or  answers['question_id'].
+// It is designed for speed over complexity, assuming conditions are simple and well-formed.
+// It does not handle complex expressions or nested conditions.
+func (q question) extractQuestionIDsFromCondition() []string {
+	condition := q.Condition
+	var ids []string
+
+	for i := 0; i < len(condition); i++ {
+		if i+8 < len(condition) && condition[i:i+8] == `answers[` {
+			// Found start of answers[
+			start := i + 8
+
+			// Find the quote character (either " or ')
+			if condition[start] == '"' || condition[start] == '\'' {
+				quote := condition[start]
+				start++ // Skip opening quote
+
+				// Find closing quote
+				end := start
+				for end < len(condition) && condition[end] != quote {
+					end++
+				}
+
+				if end < len(condition) {
+					// Extract the question ID
+					questionID := condition[start:end]
+					if questionID != "" && !contains(ids, questionID) {
+						ids = append(ids, questionID)
+					}
+				}
+			}
+		}
+	}
+
+	return ids
 }

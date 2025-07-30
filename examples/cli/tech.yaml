@@ -10,6 +10,7 @@ questions:
 
   - id: "tech_stack"
     text: "How would you define your main skill?"
+    depends_on: ["career_stage"]
     condition: 'answers["career_stage"] == 2 or answers["career_stage"] == 3'
     answers:
       - "Frontend"
@@ -19,6 +20,7 @@ questions:
 
   - id: "company_size"
     text: "What kind of company are you working on?"
+    depends_on: ["career_stage"]
     condition: 'answers["career_stage"] >= 2'
     answers:
       - "Startup"

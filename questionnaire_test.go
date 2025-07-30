@@ -72,6 +72,32 @@ questions:
 			})
 		})
 
+		When("questionnaire is completely empty", func() {
+			It("should load successfully", func() {
+				q, err := gdq.New([]byte(``))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(q).ToNot(BeNil())
+			})
+
+			It("should load successfully with empty questions array", func() {
+				q, err := gdq.New([]byte(`questions: []`))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(q).ToNot(BeNil())
+			})
+		})
+
+		When("questionnaire has empty question IDs", func() {
+			It("should return a graceful error", func() {
+				_, err := gdq.New([]byte(`
+questions:
+  - id: ""
+    text: "Question with empty ID"
+    answers: ["Yes", "No"]
+`))
+				Expect(err).To(MatchError("questionnaire validation failed: validation error (empty_question_id): questionnaire contains a question with no ID"))
+			})
+		})
+
 		When("questionnaire has duplicate question IDs", func() {
 			It("should fail to load", func() {
 				_, err := gdq.New([]byte(`
@@ -124,29 +150,73 @@ questions:
 			})
 		})
 
-		When("questionnaire is completely empty", func() {
-			It("should load successfully", func() {
-				q, err := gdq.New([]byte(``))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(q).ToNot(BeNil())
-			})
-
-			It("should load successfully with empty questions array", func() {
-				q, err := gdq.New([]byte(`questions: []`))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(q).ToNot(BeNil())
-			})
-		})
-
-		When("questionnaire has empty question IDs", func() {
-			It("should return a graceful error", func() {
-				_, err := gdq.New([]byte(`
+		When("questionnaire contains invalid dependencies", func() {
+			It("should detect dependency on non existing question", func() {
+				yamlData := []byte(`
 questions:
-  - id: ""
-    text: "Question with empty ID"
+  - id: "q1"
+    text: "First question"
     answers: ["Yes", "No"]
-`))
-				Expect(err).To(MatchError("questionnaire validation failed: validation error (empty_question_id): questionnaire contains a question with no ID"))
+    depends_on: ["nonexistent"]`)
+				_, err := gdq.New(yamlData)
+				Expect(err).To(MatchError("questionnaire validation failed: validation error (invalid_dependency): question 'q1' depends on non-existent question 'nonexistent'"))
+			})
+
+			It("should detect condition-dependency mismatches", func() {
+				yamlData := []byte(`
+questions:
+  - id: "q1"
+    text: "First question"
+    answers: ["Yes", "No"]
+  - id: "q2"
+    text: "Second question"
+    answers: ["A", "B"]
+  - id: "q3"
+    text: "Third question"
+    answers: ["X", "Y"]
+    depends_on: ["q1"]
+    condition: 'answers["q1"] == 1 && answers["q2"] == 1'`)
+				_, err := gdq.New(yamlData)
+				Expect(err).To(MatchError("questionnaire validation failed: validation error (condition_dependency_mismatch): question 'q3' conditions don't match the declared dependencies [q1 q2]"))
+			})
+
+			It("should detect circular dependencies", func() {
+				yamlData := []byte(`
+questions:
+  - id: "q1"
+    text: "First question"
+    answers: ["Yes", "No"]
+    depends_on: ["q2"]
+    condition: 'answers["q2"] == 1'
+  - id: "q2"
+    text: "Second question"
+    answers: ["A", "B"]
+    depends_on: ["q1"]
+    condition: 'answers["q1"] == 1'`)
+				_, err := gdq.New(yamlData)
+				Expect(err).To(MatchError("questionnaire validation failed: validation error (circular_dependency): circular dependency detected: q1 -> q2 -> q1"))
+			})
+
+			It("should detect complex circular dependencies", func() {
+				yamlData := []byte(`
+questions:
+  - id: "q1"
+    text: "Q1"
+    answers: ["Yes", "No"]
+    depends_on: ["q3"]
+    condition: 'answers["q3"] == 1'
+  - id: "q2"
+    text: "Q2"
+    answers: ["A", "B"]
+    depends_on: ["q1"]
+    condition: 'answers["q1"] == 1'
+  - id: "q3"
+    text: "Q3"
+    answers: ["X", "Y"]
+    depends_on: ["q2"]
+    condition: 'answers["q2"] == 1'`)
+				_, err := gdq.New(yamlData)
+				Expect(err).To(MatchError("questionnaire validation failed: validation error (circular_dependency): circular dependency detected: q1 -> q3 -> q2 -> q1"))
 			})
 		})
 	})
@@ -181,6 +251,7 @@ questions:
     answers:
       - "Yes"
       - "No"
+    depends_on: ["q1"]
     condition: "answers['q1'] == 1"`
 			})
 
@@ -234,40 +305,51 @@ questions:
 			})
 		})
 
-		When("one or more questions have been answered", func() {
+		When("the questionnaire has multiple questions and dependencies", func() {
 			BeforeEach(func() {
 				config = `
 questions:
-  - id: "q1"
-    text: "Question 1?"
-    answers:
-      - "Answer 1"
-      - "Answer 2"
-  - id: "q2"
-    text: "Question 2?"
-    answers:
-      - "Answer 1"
-      - "Answer 2"
-      - "Answer 3"
-    condition: 'answers["q1"] == 1'
-  - id: "q3"
-    text: "Question 3?"
-    answers:
-      - "Answer 1"
-      - "Answer 2"
-      - "Answer 3"
-    condition: 'answers["q1"] == 1'`
+  - id: "entry"
+    text: "Entry question"
+    answers: ["Continue", "Stop"]
+  - id: "step1"
+    text: "Step 1?"
+    answers: ["Continue", "Stop"]
+    depends_on: ["entry"]
+    condition: 'answers["entry"] == 1'
+  - id: "step2"
+    text: "Step 2?"
+    answers: ["Continue", "Stop"]
+    depends_on: ["step1"]
+    condition: 'answers["step1"] == 1'
+  - id: "final"
+    text: "Final Step?"
+    answers: ["Done"]
+    depends_on: ["step2"]
+    condition: 'answers["step2"] == 1'`
 			})
 
-			It("should return the next questions depending on the answer", func() {
-				r, err := q.Next(map[string]int{"q1": 1})
+			It("should go from question to question", func() {
+				// Progressive answering through the chain
+				response, err := q.Next(map[string]int{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(r.Questions).To(Equal([]gdq.Question{
-					{Id: "q2", Text: "Question 2?", Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
-					{Id: "q3", Text: "Question 3?", Answers: []string{"Answer 1", "Answer 2", "Answer 3"}},
-				}))
-				Expect(r.Completed).To(BeFalse())
-				Expect(r.Progress).To(Equal(&gdq.Progress{Current: 1, Total: 3}))
+				Expect(response.Questions).To(HaveLen(1))
+				Expect(response.Questions[0].Id).To(Equal("entry"))
+
+				response, err = q.Next(map[string]int{"entry": 1})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response.Questions).To(HaveLen(1))
+				Expect(response.Questions[0].Id).To(Equal("step1"))
+
+				response, err = q.Next(map[string]int{"entry": 1, "step1": 1})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response.Questions).To(HaveLen(1))
+				Expect(response.Questions[0].Id).To(Equal("step2"))
+
+				response, err = q.Next(map[string]int{"entry": 1, "step1": 1, "step2": 1})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response.Questions).To(HaveLen(1))
+				Expect(response.Questions[0].Id).To(Equal("final"))
 			})
 		})
 
@@ -329,6 +411,68 @@ questions:
 				})
 			})
 		})
+
+		When("the answers contain invalid question IDs", func() {
+			BeforeEach(func() {
+				config = `
+questions:
+  - id: "satisfaction"
+    text: "How satisfied are you?"
+    answers:
+      - "Very Satisfied"
+      - "Satisfied"
+      - "Neutral"`
+			})
+
+			It("should return a validation error for the 1st invalid question", func() {
+				_, err := q.Next(map[string]int{
+					"nonexistent_question_1": 1,
+					"nonexistent_question_2": 1,
+				})
+				Expect(err).To(MatchError("invalid answers provided: validation error (invalid_question_id): question does not exist"))
+			})
+		})
+
+		When("the answers contain out-of-range values", func() {
+			BeforeEach(func() {
+				config = `
+questions:
+  - id: "satisfaction"
+    text: "How satisfied are you?"
+    answers:
+      - "Very Satisfied"
+      - "Satisfied"
+      - "Neutral"`
+			})
+
+			It("should return a validation error for value too high", func() {
+				_, err := q.Next(map[string]int{
+					"satisfaction": 5,
+				})
+				Expect(err).To(MatchError("invalid answers provided: validation error (invalid_answer_range): answer is out of range"))
+			})
+
+			It("should return a validation error for zero value", func() {
+				_, err := q.Next(map[string]int{
+					"satisfaction": 0,
+				})
+				Expect(err).To(MatchError("invalid answers provided: validation error (invalid_answer_range): answer is out of range"))
+			})
+
+			It("should return a validation error for negative value", func() {
+				_, err := q.Next(map[string]int{
+					"satisfaction": -1,
+				})
+				Expect(err).To(MatchError("invalid answers provided: validation error (invalid_answer_range): answer is out of range"))
+			})
+
+			It("should handle large answer values gracefully", func() {
+				_, err := q.Next(map[string]int{
+					"satisfaction": math.MaxInt32,
+				})
+				Expect(err).To(MatchError("invalid answers provided: validation error (invalid_answer_range): answer is out of range"))
+			})
+		})
 	})
 
 	Describe("Closing Remarks", func() {
@@ -388,6 +532,7 @@ questions:
     answers:
       - "Yes"
       - "No"
+    depends_on: ["q1"]
     condition: 'answers["q1"] == 1'
 
 closing_remarks:
@@ -495,18 +640,21 @@ questions:
     answers:
       - "Yes"
       - "No"
+    depends_on: ["q1"]
     condition: 'answers["q1"] == 1'
   - id: "q3a"
     text: "Question 3A?"
     answers:
       - "Yes"
       - "No"
+    depends_on: ["q1"]
     condition: 'answers["q1"] == 1'
   - id: "q2b"
     text: "Question 2B?"
     answers:
       - "Option 1"
       - "Option 2"
+    depends_on: ["q1"]
     condition: 'answers["q1"] == 2'`
 			})
 
@@ -523,70 +671,6 @@ questions:
 				Expect(err).ToNot(HaveOccurred())
 				Expect(response.Completed).To(BeTrue())
 				Expect(response.Progress).To(BeNil())
-			})
-		})
-	})
-
-	Describe("Answer Validation", func() {
-		var (
-			q   gdq.Questionnaire
-			err error
-		)
-		JustBeforeEach(func() {
-			q, err = gdq.New([]byte(`
-questions:
-  - id: "satisfaction"
-    text: "How satisfied are you?"
-    answers:
-      - "Very Satisfied"
-      - "Satisfied"
-      - "Neutral"
-  - id: "recommend"
-    text: "Would you recommend us?"
-    answers:
-      - "Yes"
-      - "No"
-    condition: 'answers["satisfaction"] <= 2'`))
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		When("answers contain invalid question IDs", func() {
-			It("should return a validation error for the 1st invalid question", func() {
-				_, err := q.Next(map[string]int{
-					"nonexistent_question_1": 1,
-					"nonexistent_question_2": 1,
-				})
-				Expect(err).To(MatchError("invalid answers provided: validation error (invalid_question_id): question does not exist"))
-			})
-		})
-
-		When("answers contain out-of-range values", func() {
-			It("should return a validation error for value too high", func() {
-				_, err := q.Next(map[string]int{
-					"satisfaction": 5,
-				})
-				Expect(err).To(MatchError("invalid answers provided: validation error (invalid_answer_range): answer is out of range"))
-			})
-
-			It("should return a validation error for zero value", func() {
-				_, err := q.Next(map[string]int{
-					"satisfaction": 0,
-				})
-				Expect(err).To(MatchError("invalid answers provided: validation error (invalid_answer_range): answer is out of range"))
-			})
-
-			It("should return a validation error for negative value", func() {
-				_, err := q.Next(map[string]int{
-					"satisfaction": -1,
-				})
-				Expect(err).To(MatchError("invalid answers provided: validation error (invalid_answer_range): answer is out of range"))
-			})
-
-			It("should handle large answer values gracefully", func() {
-				_, err := q.Next(map[string]int{
-					"satisfaction": math.MaxInt32,
-				})
-				Expect(err).To(MatchError("invalid answers provided: validation error (invalid_answer_range): answer is out of range"))
 			})
 		})
 	})

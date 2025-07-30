@@ -26,6 +26,18 @@ const (
 	// invalidAnswerRangeErrType indicates an answer value is outside the valid range.
 	// Answer values must be between 1 and the number of available answers for that question.
 	invalidAnswerRangeErrType = "invalid_answer_range"
+
+	// invalidDependencyErrType indicates a question depends on a non-existent question.
+	// All question IDs in depends_on must correspond to valid questions.
+	invalidDependencyErrType = "invalid_dependency"
+
+	// circularDependencyErrType indicates circular dependencies exist in the questionnaire.
+	// Questions cannot depend on themselves directly or indirectly.
+	circularDependencyErrType = "circular_dependency"
+
+	// conditionDependencyMismatchErrType indicates condition references don't match depends_on.
+	// Questions should declare dependencies for all question IDs used in conditions.
+	conditionDependencyMismatchErrType = "condition_dependency_mismatch"
 )
 
 // validationError represents an error that occurs during questionnaire validation.
@@ -208,6 +220,118 @@ func invalidAnswerRangeError(q *question, answer int) error {
 			"question_text": q.Text,
 			"answer":        answer,
 			"valid_range":   fmt.Sprintf("1-%d", len(q.Answers)),
+		},
+	}
+}
+
+// invalidDependencyError creates a validation error for invalid question dependencies.
+// This error occurs during questionnaire loading when a question declares a dependency
+// on a question ID that doesn't exist in the questionnaire.
+//
+// Parameters:
+//
+//	questionID: The ID of the question that has the invalid dependency.
+//	invalidDependencyID: The non-existent question ID that was referenced.
+//
+// Returns:
+//
+//	error: A validationError with type invalidDependencyErrType and
+//	       context containing both question IDs.
+//
+// Example scenario:
+//
+//	questions:
+//	  - id: "q1"
+//	    text: "First question"
+//	    answers: ["Yes", "No"]
+//	  - id: "q2"
+//	    text: "Second question"
+//	    answers: ["A", "B", "C"]
+//	    depends_on: ["nonexistent"]  # "nonexistent" doesn't exist
+func invalidDependencyError(questionID, invalidDependencyID string) error {
+	return validationError{
+		Type:    invalidDependencyErrType,
+		Message: fmt.Sprintf("question '%s' depends on non-existent question '%s'", questionID, invalidDependencyID),
+		Context: map[string]interface{}{
+			"question_id":           questionID,
+			"invalid_dependency_id": invalidDependencyID,
+		},
+	}
+}
+
+// circularDependencyError creates a validation error for circular dependencies.
+// This error occurs during questionnaire loading when questions have circular
+// dependency relationships, which would create infinite loops.
+//
+// Parameters:
+//
+//	cycle: A slice of question IDs representing the circular dependency path.
+//	       The last element should be the same as an earlier element to show the cycle.
+//
+// Returns:
+//
+//	error: A validationError with type circularDependencyErrType and
+//	       context containing the full dependency cycle.
+//
+// Example scenario:
+//
+//	questions:
+//	  - id: "q1"
+//	    depends_on: ["q2"]
+//	  - id: "q2"
+//	    depends_on: ["q3"]
+//	  - id: "q3"
+//	    depends_on: ["q1"]  # Creates cycle: q1 -> q2 -> q3 -> q1
+func circularDependencyError(cycle []string) error {
+	cycleStr := fmt.Sprintf("%s", cycle[0])
+	for i := 1; i < len(cycle); i++ {
+		cycleStr += " -> " + cycle[i]
+	}
+
+	return validationError{
+		Type:    circularDependencyErrType,
+		Message: fmt.Sprintf("circular dependency detected: %s", cycleStr),
+		Context: map[string]interface{}{
+			"cycle":        cycle,
+			"cycle_length": len(cycle) - 1, // -1 because last element repeats the first
+		},
+	}
+}
+
+// conditionDependencyMismatchError creates a validation error when question conditions
+// reference question IDs that are not declared in the depends_on field.
+// This error helps ensure consistency between explicit dependencies and condition logic.
+//
+// Parameters:
+//
+//	questionID: The ID of the question with the mismatched condition.
+//	declared: The dependencies declared in depends_on.
+//	condition: The dependencies referenced in condition.
+//
+// Returns:
+//
+//	error: A validationError with type conditionDependencyMismatchErrType and
+//	       context containing both question IDs.
+//
+// Example scenario:
+//
+//	questions:
+//	  - id: "q1"
+//	    text: "First question"
+//	    answers: ["Yes", "No"]
+//	  - id: "q2"
+//	    text: "Second question"
+//	    answers: ["A", "B"]
+//	    depends_on: ["q1"]
+//	    condition: 'answers["q1"] == 1 && answers["q3"] == 2'  # References q3 but doesn't declare it
+func conditionDependencyMismatchError(questionID string, declared, condition []string) error {
+	return validationError{
+		Type:    conditionDependencyMismatchErrType,
+		Message: fmt.Sprintf("question '%s' conditions don't match the declared dependencies %v", questionID, declared),
+		Context: map[string]interface{}{
+			"question_id":  questionID,
+			"condition":    condition,
+			"dependencies": declared,
 		},
 	}
 }

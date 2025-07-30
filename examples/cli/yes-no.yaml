@@ -13,6 +13,7 @@ questions:
 
   - id: "language_preference"
     text: "Do you prefer statically typed languages?"
+    depends_on: ["experience"]
     condition: 'answers["experience"] == 1'
     answers:
       - "Yes"
@@ -20,6 +21,7 @@ questions:
 
   - id: "alternative_path"
     text: "Would you like to learn programming?"
+    depends_on: ["experience"]
     condition: 'answers["experience"] == 2'
     answers:
       - "Yes"

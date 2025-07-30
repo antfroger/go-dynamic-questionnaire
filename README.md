@@ -58,6 +58,38 @@ func main() {
 }
 ```
 
+## Configuration Format
+
+Create questionnaires using YAML:
+
+```yaml
+questions:
+  - id: "satisfaction"
+    text: "How satisfied are you with our service?"
+    answers:
+      - "Very Satisfied"
+      - "Satisfied"
+      - "Neutral"
+      - "Dissatisfied"
+      - "Very Dissatisfied"
+
+  - id: "recommendation"
+    text: "Would you recommend us to others?"
+    depends_on: ["satisfaction"]
+    condition: 'answers["satisfaction"] in [1,2]'
+    answers:
+      - "Definitely"
+      - "Probably"
+      - "Maybe"
+
+closing_remarks:
+  - id: "thank_you"
+    text: "Thank you for your feedback!"
+  - id: "follow_up"
+    text: "We'll reach out to address your concerns."
+    condition: 'answers["satisfaction"] >= 4'
+```
+
 ## Features
 
 ### Unified API
@@ -69,6 +101,39 @@ Single `Next()` method returns everything you need:
 - Completion status
 - Progress tracking
 
+in a unified response:
+
+```go
+type Response struct {
+    Questions      []Question      `json:"questions"`
+    ClosingRemarks []ClosingRemark `json:"closing_remarks,omitempty"`
+    Completed      bool            `json:"completed"`
+    Progress       *Progress       `json:"progress,omitempty"`
+}
+```
+
+### Closing Remarks
+
+Show personalized messages when questionnaire is completed:
+
+```go
+type ClosingRemark struct {
+		Id   string `json:"id"`   // Unique identifier for the remark
+		Text string `json:"text"` // The message text to display
+	}
+```
+
+Configure closing remarks in your YAML:
+
+```yaml
+closing_remarks:
+  - id: "general"
+    text: "Thank you for completing the questionnaire!"
+  - id: "specific"
+    text: "Based on your answers, here's our recommendation..."
+    condition: 'answers["interest"] == 1'
+```
+
 ### Progress Tracking
 
 Track user progress through the questionnaire:
@@ -78,19 +143,6 @@ type Progress struct {
     Current int `json:"current"`  // Questions answered
     Total   int `json:"total"`    // Total questions in the current path
 }
-```
-
-### Closing Remarks
-
-Show personalized messages when questionnaire is completed:
-
-```yaml
-closing_remarks:
-  - id: "general"
-    text: "Thank you for completing the questionnaire!"
-  - id: "specific"
-    text: "Based on your answers, here's our recommendation..."
-    condition: 'answers["interest"] == 1'
 ```
 
 ### Conditional Logic
@@ -111,50 +163,6 @@ questions:
       - "Go"
       - "Python"
       - "JavaScript"
-```
-
-## Response Structure
-
-The `Next()` method returns a unified response:
-
-```go
-type Response struct {
-    Questions      []Question      `json:"questions"`
-    ClosingRemarks []ClosingRemark `json:"closing_remarks,omitempty"`
-    Completed      bool            `json:"completed"`
-    Progress       *Progress       `json:"progress,omitempty"`
-}
-```
-
-## Configuration Format
-
-Create questionnaires using YAML:
-
-```yaml
-questions:
-  - id: "satisfaction"
-    text: "How satisfied are you with our service?"
-    answers:
-      - "Very Satisfied"
-      - "Satisfied"
-      - "Neutral"
-      - "Dissatisfied"
-      - "Very Dissatisfied"
-
-  - id: "recommendation"
-    text: "Would you recommend us to others?"
-    condition: 'answers["satisfaction"] in [1,2]'
-    answers:
-      - "Definitely"
-      - "Probably"
-      - "Maybe"
-
-closing_remarks:
-  - id: "thank_you"
-    text: "Thank you for your feedback!"
-  - id: "follow_up"
-    text: "We'll reach out to address your concerns."
-    condition: 'answers["satisfaction"] >= 4'
 ```
 
 ## Examples
@@ -217,10 +225,21 @@ q, err := questionnaire.New(yamlData)
 
 ## Areas for Improvement
 
-- Question Dependencies: More explicit dependency tracking
-- Add loaders for different configuration formats
-  Introduce a loader interface to handle different config types. These loaders would be responsible for reading from files, parsing YAML/JSON, etc. 
-    - read the configuration from a JSON file
-    - read the configuration from JSON bytes
-    - pass pre-configured questions
-- Performance optimizations for large questionnaires
+### Medium Term
+
+1. Add loaders for different configuration formats  
+   Introduce a loader interface to handle different config types. These loaders would be responsible for reading from files, parsing YAML/JSON, etc.
+   - read the configuration from a JSON file
+   - read the configuration from JSON bytes
+   - pass pre-configured questions
+2. Question type system (text input, numbers, etc.)
+3. Question validation (required fields, formats)
+4. Performance optimizations for large questionnaires
+    - Pre-compute which questions are available
+    - Cache condition evaluation results
+
+### Long Term
+
+1. Internationalization support
+2. Advanced branching logic and survey flows
+3. Builder pattern for easier questionnaire construction
