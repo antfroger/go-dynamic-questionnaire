@@ -7,7 +7,7 @@ require (
 	github.com/goccy/go-yaml v1.18.0
 	// dev dependencies
 	github.com/onsi/ginkgo/v2 v2.23.4
-	github.com/onsi/gomega v1.37.0
+	github.com/onsi/gomega v1.38.0
 )
 
 require (
