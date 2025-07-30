@@ -2,6 +2,7 @@ package go_dynamic_questionnaire
 
 import (
 	"fmt"
+	"strings"
 )
 
 // Error type constants for consistent error identification.
@@ -283,17 +284,12 @@ func invalidDependencyError(questionID, invalidDependencyID string) error {
 //	  - id: "q3"
 //	    depends_on: ["q1"]  # Creates cycle: q1 -> q2 -> q3 -> q1
 func circularDependencyError(cycle []string) error {
-	cycleStr := fmt.Sprintf("%s", cycle[0])
-	for i := 1; i < len(cycle); i++ {
-		cycleStr += " -> " + cycle[i]
-	}
-
 	return validationError{
 		Type:    circularDependencyErrType,
-		Message: fmt.Sprintf("circular dependency detected: %s", cycleStr),
+		Message: fmt.Sprintf("circular dependency detected: %s", strings.Join(cycle, " -> ")),
 		Context: map[string]interface{}{
 			"cycle":        cycle,
-			"cycle_length": len(cycle) - 1, // -1 because last element repeats the first
+			"cycle_length": len(cycle) - 1, // -1 because the last element repeats the first
 		},
 	}
 }
