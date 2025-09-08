@@ -8,6 +8,9 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "[gomod] "
+    groups:
+      minor-patch-updates:
+        update-types: ["minor", "major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -18,3 +21,6 @@ updates:
         patterns: [ "*" ]
     commit-message:
       prefix: "[actions] "
+    groups:
+      minor-patch-updates:
+        update-types: ["minor", "major"]
