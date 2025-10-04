@@ -1,74 +1,19 @@
 package go_dynamic_questionnaire_test
 
 import (
-	"errors"
 	"math"
-	"os"
 
 	gdq "github.com/antfroger/go-dynamic-questionnaire"
-	"github.com/goccy/go-yaml"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Questionnaire", func() {
 	Describe("New", func() {
-		When("config is a file", func() {
-			When("the given file does not exist", func() {
-				It("returns an error", func() {
-					_, err := gdq.New("testdata/missing.yaml")
-					Expect(err).To(MatchError(ContainSubstring(`failed to read config file "testdata/missing.yaml"`)))
-					Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
-				})
-			})
-
-			When("the given file exists", func() {
-				It("should load a questionnaire from the file", func() {
-					content := []byte(`
-questions:
-  - id: "q1"
-    text: "Question 1?"
-    answers:
-      - "Answer 1"
-      - "Answer 2"
-`)
-					tmpFile, err := os.CreateTemp("", "questionnaire-*.yaml")
-					Expect(err).To(BeNil())
-					defer func(name string) {
-						_ = os.Remove(name)
-					}(tmpFile.Name())
-
-					_, err = tmpFile.Write(content)
-					Expect(err).To(BeNil())
-					err = tmpFile.Close()
-					Expect(err).To(BeNil())
-
-					q, err := gdq.New(tmpFile.Name())
-					Expect(err).To(BeNil())
-					Expect(q).NotTo(BeNil())
-				})
-			})
-		})
-
-		When("config is yaml content", func() {
-			It("should load the questionnaire from bytes", func() {
-				q, err := gdq.New([]byte(`
-questions:
-  - id: "q1"
-    text: "Question 1?"
-    answers:
-      - "Answer 1"
-      - "Answer 2"
-`))
-				Expect(err).To(BeNil())
-				Expect(q).NotTo(BeNil())
-			})
-
-			It("should handle invalid YAML content", func() {
-				_, err := gdq.New([]byte(`invalid yaml`))
-				Expect(err).To(MatchError(ContainSubstring(`failed to parse questionnaire config`)))
-				var yamlErr *yaml.UnexpectedNodeTypeError
-				Expect(errors.As(err, &yamlErr)).To(BeTrue())
+		When("config can't be loaded", func() {
+			It("returns an error", func() {
+				_, err := gdq.New("testdata/missing.yaml")
+				Expect(err).To(MatchError(ContainSubstring(`failed to load config`)))
 			})
 		})
 
@@ -86,6 +31,20 @@ questions:
 			})
 		})
 
+		When("validation fails", func() {
+			It("should return validation error", func() {
+				_, err := gdq.New([]byte(`
+questions:
+  - id: ""
+    text: "Question with empty ID"
+    answers: ["Yes", "No"]
+`))
+				Expect(err).To(MatchError(ContainSubstring(`questionnaire validation failed`)))
+			})
+		})
+	})
+
+	Describe("Validation", func() {
 		When("questionnaire has empty question IDs", func() {
 			It("should return a graceful error", func() {
 				_, err := gdq.New([]byte(`

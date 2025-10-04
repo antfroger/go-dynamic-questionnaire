@@ -26,10 +26,8 @@ package go_dynamic_questionnaire
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/expr-lang/expr"
-	"github.com/goccy/go-yaml"
 )
 
 type (
@@ -78,41 +76,41 @@ type (
 	}
 
 	// config is a constraint interface for configuration inputs to the New function.
-	// It accepts either a file path (string) or raw YAML content ([]byte).
+	// It accepts either a file path (string) or raw content ([]byte).
 	//
 	// Examples:
 	//   New("path/to/questionnaire.yaml")  // Load from file
-	//   New([]byte("questions: ..."))      // Load from YAML content
+	//   New([]byte("questions: ..."))      // Load from content
 	config interface {
 		string | []byte
 	}
 
 	// questionnaire is the internal implementation of the Questionnaire interface.
-	// It contains the parsed questions and closing remarks from YAML configuration.
+	// It contains the parsed questions and closing remarks from configuration.
 	//
 	// This struct is not exported as users should interact with the Questionnaire interface.
 	// Instances are created through the New function and are immutable after creation.
 	questionnaire struct {
-		Questions []question      `yaml:"questions"`       // List of all questions in the questionnaire
-		Remarks   []closingRemark `yaml:"closing_remarks"` // List of all closing remarks
+		Questions []question      `yaml:"questions" json:"questions"`             // List of all questions in the questionnaire
+		Remarks   []closingRemark `yaml:"closing_remarks" json:"closing_remarks"` // List of all closing remarks
 	}
 
 	// question represents a single question in the questionnaire configuration.
 	// Questions can have conditional logic that determines when they should be shown.
 	question struct {
-		Id        string   `yaml:"id"`                   // Unique identifier for the question
-		Text      string   `yaml:"text"`                 // The question text shown to users
-		Answers   []string `yaml:"answers"`              // List of possible answer choices
-		DependsOn []string `yaml:"depends_on,omitempty"` // Explicit list of question IDs this question depends on (required if condition is used)
-		Condition string   `yaml:"condition,omitempty"`  // Optional expression to determine if question should be shown
+		Id        string   `yaml:"id" json:"id"`                                     // Unique identifier for the question
+		Text      string   `yaml:"text" json:"text"`                                 // The question text shown to users
+		Answers   []string `yaml:"answers" json:"answers"`                           // List of possible answer choices
+		DependsOn []string `yaml:"depends_on,omitempty" json:"depends_on,omitempty"` // Explicit list of question IDs this question depends on (required if condition is used)
+		Condition string   `yaml:"condition,omitempty" json:"condition,omitempty"`   // Optional expression to determine if question should be shown
 	}
 
 	// closingRemark represents a message shown when the questionnaire is completed.
 	// Like questions, closing remarks can have conditional logic.
 	closingRemark struct {
-		Id        string `yaml:"id"`                  // Unique identifier for the remark
-		Text      string `yaml:"text"`                // The remark text shown to users
-		Condition string `yaml:"condition,omitempty"` // Optional expression to determine if remark should be shown
+		Id        string `yaml:"id" json:"id"`                                   // Unique identifier for the remark
+		Text      string `yaml:"text" json:"text"`                               // The remark text shown to users
+		Condition string `yaml:"condition,omitempty" json:"condition,omitempty"` // Optional expression to determine if remark should be shown
 	}
 
 	// Response represents the complete response from processing a questionnaire step.
@@ -173,25 +171,26 @@ type (
 	}
 )
 
-// New creates a new Questionnaire instance from either a file path or YAML content.
+// New creates a new Questionnaire instance from either a file path or content (YAML or JSON).
 //
 // The function accepts two types of input:
-//   - string: Path to a YAML configuration file
-//   - []byte: Raw YAML content as bytes
+//   - string: Path to a configuration file (.yaml, .yml, or .json)
+//   - []byte: Raw configuration content (YAML or JSON)
 //
 // Parameters:
 //
-//	config: Either a file path (string) or YAML content ([]byte).
-//	        The YAML must contain 'questions' and optionally 'closing_remarks' sections.
+//	config: Either a file path (string) or configuration content ([]byte).
+//	        The configuration must contain 'questions' and optionally 'closing_remarks' sections.
+//	        Supported formats: YAML (.yaml, .yml) and JSON (.json)
 //
 // Returns:
 //
 //	Questionnaire: A fully configured questionnaire instance ready for use.
 //	               The instance is immutable and thread-safe.
-//	error: Returns configuration errors, file reading errors, YAML parsing errors,
+//	error: Returns configuration errors, file reading errors, parsing errors,
 //	       or validation errors if the questionnaire structure is invalid.
 //
-// Example usage with file path:
+// Example usage with YAML file:
 //
 //	q, err := gdq.New("surveys/customer-feedback.yaml")
 //	if err != nil {
@@ -219,51 +218,51 @@ type (
 //	    return fmt.Errorf("questionnaire creation failed: %w", err)
 //	}
 //
+// Example usage with JSON content:
+//
+//	jsonData := []byte(`{
+//	  "questions": [
+//	    {
+//	      "id": "satisfaction",
+//	      "text": "How satisfied are you with our service?",
+//	      "answers": ["Very satisfied", "Satisfied", "Neutral", "Dissatisfied"]
+//	    },
+//	    {
+//	      "id": "recommend",
+//	      "text": "Would you recommend us?",
+//	      "answers": ["Yes", "No"],
+//	      "condition": "answers[\"satisfaction\"] <= 2"
+//	    }
+//	  ],
+//	  "closing_remarks": [
+//	    {
+//	      "id": "thanks",
+//	      "text": "Thank you for your feedback!"
+//	    }
+//	  ]
+//	}`)
+//
+//	q, err := gdq.New(jsonData)
+//	if err != nil {
+//	    return fmt.Errorf("questionnaire creation failed: %w", err)
+//	}
+//
 // The function validates the questionnaire structure during creation, checking for:
 //   - Duplicate question IDs
 //   - Empty question IDs
 //   - Questions without answer options
-//   - Invalid YAML syntax
+//   - Invalid configuration syntax
 func New[T config](config T) (Questionnaire, error) {
 	q := &questionnaire{}
 	if err := loadConfig(config, q); err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
+
 	if err := q.validateQuestionnaireIntegrity(); err != nil {
 		return nil, fmt.Errorf("questionnaire validation failed: %w", err)
 	}
 
 	return q, nil
-}
-
-// loadConfig loads a questionnaire configuration from a file path or YAML content.
-func loadConfig[T config](config T, q *questionnaire) error {
-	switch v := any(config).(type) {
-	case string:
-		return loadYamlFileConfig(v, q)
-	case []byte:
-		return loadYamlConfig(v, q)
-	}
-
-	return fmt.Errorf("unsupported config type: expected string (file path) or []byte (YAML content), got %T", config)
-}
-
-// loadYamlFileConfig loads a questionnaire configuration from a YAML file.
-func loadYamlFileConfig(configPath string, q *questionnaire) error {
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return fmt.Errorf("failed to read config file %q: %w", configPath, err)
-	}
-
-	return loadYamlConfig(data, q)
-}
-
-// loadYamlConfig loads a questionnaire configuration from YAML content.
-func loadYamlConfig(data []byte, q *questionnaire) error {
-	if err := yaml.Unmarshal(data, q); err != nil {
-		return fmt.Errorf("failed to parse questionnaire config: %w", err)
-	}
-	return nil
 }
 
 // validateQuestionnaireIntegrity validates the questionnaire configuration at load time
