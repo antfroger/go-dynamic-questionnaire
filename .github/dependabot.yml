@@ -24,5 +24,3 @@ updates:
     groups:
       minor-patch-updates:
         update-types: ["minor", "major"]
-
-#abc
