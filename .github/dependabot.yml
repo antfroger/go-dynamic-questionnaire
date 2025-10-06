@@ -19,8 +19,7 @@ updates:
     groups:
       all-actions:
         patterns: [ "*" ]
-    commit-message:
-      prefix: "[actions] "
-    groups:
       minor-patch-updates:
         update-types: ["minor", "major"]
+    commit-message:
+      prefix: "[actions] "
