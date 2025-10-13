@@ -227,14 +227,9 @@ q, err := questionnaire.New(yamlData)
 
 ### Medium Term
 
-1. Add loaders for different configuration formats  
-   Introduce a loader interface to handle different config types. These loaders would be responsible for reading from files, parsing YAML/JSON, etc.
-   - read the configuration from a JSON file
-   - read the configuration from JSON bytes
-   - pass pre-configured questions
-2. Question type system (text input, numbers, etc.)
-3. Question validation (required fields, formats)
-4. Performance optimizations for large questionnaires
+1. Question type system (text input, numbers, etc.)
+2. Question validation (required fields, formats)
+3. Performance optimizations for large questionnaires
     - Pre-compute which questions are available
     - Cache condition evaluation results
 
