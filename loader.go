@@ -62,8 +62,7 @@ func getLoaderForConfig(cfg interface{}) (Loader, error) {
 	switch v := cfg.(type) {
 	case string:
 		// Determine loader based on file extension
-		ext := strings.ToLower(filepath.Ext(v))
-		switch ext {
+		switch ext := strings.ToLower(filepath.Ext(v)); ext {
 		case ".yaml", ".yml":
 			return &yamlLoader{}, nil
 		case ".json":
@@ -89,34 +88,7 @@ type yamlLoader struct{}
 
 // Load parses YAML configuration data and populates the provided questionnaire struct.
 func (l *yamlLoader) Load(data interface{}, q *questionnaire) error {
-	var yamlData []byte
-	var err error
-
-	switch v := data.(type) {
-	case string:
-		// Load from file
-		yamlData, err = os.ReadFile(v)
-		if err != nil {
-			return fmt.Errorf("failed to read YAML file %q: %w", v, err)
-		}
-	case []byte:
-		// Load from byte array
-		yamlData = v
-	default:
-		return fmt.Errorf("unsupported data type for YAML loader: %T", data)
-	}
-
-	// Unmarshal directly into the questionnaire struct
-	if err := yaml.Unmarshal(yamlData, q); err != nil {
-		return fmt.Errorf("failed to parse YAML content: %w", err)
-	}
-
-	// Basic validation to ensure data structure is valid
-	if err := validateLoadedQuestionnaire(q); err != nil {
-		return fmt.Errorf("YAML validation failed: %w", err)
-	}
-
-	return nil
+	return loadWithUnmarshaler(data, q, yaml.Unmarshal)
 }
 
 // jsonLoader implements the Loader interface for JSON configuration files.
@@ -124,31 +96,52 @@ type jsonLoader struct{}
 
 // Load parses JSON configuration data and populates the provided questionnaire struct.
 func (l *jsonLoader) Load(data interface{}, q *questionnaire) error {
-	var jsonData []byte
+	return loadWithUnmarshaler(data, q, json.Unmarshal)
+}
+
+// unmarshalFunc defines the signature for unmarshal functions.
+// This allows different format parsers (JSON, YAML, etc.) to be used interchangeably.
+type unmarshalFunc func([]byte, interface{}) error
+
+// loadWithUnmarshaler provides common loading logic for different configuration formats.
+// It handles reading data from files or byte arrays, unmarshaling with the provided
+// unmarshal function, and validating the resulting questionnaire structure.
+//
+// Parameters:
+//
+//	data: Either a file path (string) or raw configuration content ([]byte)
+//	q: Pointer to the questionnaire struct to populate
+//	unmarshal: The unmarshal function specific to the format (json.Unmarshal, yaml.Unmarshal, etc.)
+//
+// Returns:
+//
+//	error: File reading errors, parsing errors, or validation errors
+func loadWithUnmarshaler(data interface{}, q *questionnaire, unmarshal unmarshalFunc) error {
+	var content []byte
 	var err error
 
 	switch v := data.(type) {
 	case string:
 		// Load from file
-		jsonData, err = os.ReadFile(v)
+		content, err = os.ReadFile(v)
 		if err != nil {
-			return fmt.Errorf("failed to read JSON file %q: %w", v, err)
+			return fmt.Errorf("failed to read file %q: %w", v, err)
 		}
 	case []byte:
 		// Load from byte array
-		jsonData = v
+		content = v
 	default:
-		return fmt.Errorf("unsupported data type for JSON loader: %T", data)
+		return fmt.Errorf("unsupported data type for loader: %T", data)
 	}
 
 	// Unmarshal directly into the questionnaire struct
-	if err := json.Unmarshal(jsonData, q); err != nil {
-		return fmt.Errorf("failed to parse JSON content: %w", err)
+	if err := unmarshal(content, q); err != nil {
+		return fmt.Errorf("failed to parse content: %w", err)
 	}
 
 	// Basic validation to ensure data structure is valid
 	if err := validateLoadedQuestionnaire(q); err != nil {
-		return fmt.Errorf("JSON validation failed: %w", err)
+		return fmt.Errorf("validation failed: %w", err)
 	}
 
 	return nil

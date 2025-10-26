@@ -112,7 +112,7 @@ questions:
 				q := &questionnaire{}
 				err := loader.Load("non-existent.yaml", q)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("failed to read YAML file"))
+				Expect(err.Error()).To(ContainSubstring("failed to read file"))
 			})
 		})
 
@@ -141,7 +141,7 @@ questions:
 				q := &questionnaire{}
 				err := loader.Load(invalidYaml, q)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("failed to parse YAML content"))
+				Expect(err.Error()).To(ContainSubstring("failed to parse content"))
 			})
 		})
 
@@ -149,7 +149,7 @@ questions:
 			It("should return error for unsupported types", func() {
 				q := &questionnaire{}
 				err := loader.Load(123, q)
-				Expect(err).To(MatchError("unsupported data type for YAML loader: int"))
+				Expect(err).To(MatchError("unsupported data type for loader: int"))
 			})
 		})
 	})
@@ -198,7 +198,7 @@ questions:
 				q := &questionnaire{}
 				err := loader.Load("non-existent.json", q)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("failed to read JSON file"))
+				Expect(err.Error()).To(ContainSubstring("failed to read file"))
 			})
 		})
 
@@ -231,7 +231,7 @@ questions:
 				invalidJson := []byte(`{"questions": [invalid json}`)
 				q := &questionnaire{}
 				err := loader.Load(invalidJson, q)
-				Expect(err).To(MatchError(ContainSubstring("failed to parse JSON content")))
+				Expect(err).To(MatchError(ContainSubstring("failed to parse content")))
 			})
 		})
 
@@ -239,7 +239,7 @@ questions:
 			It("should return error for unsupported types", func() {
 				q := &questionnaire{}
 				err := loader.Load(123, q)
-				Expect(err).To(MatchError("unsupported data type for JSON loader: int"))
+				Expect(err).To(MatchError("unsupported data type for loader: int"))
 			})
 		})
 	})
