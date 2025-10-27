@@ -6,7 +6,7 @@ require (
 	github.com/expr-lang/expr v1.17.6
 	github.com/goccy/go-yaml v1.18.0
 	// dev dependencies
-	github.com/onsi/ginkgo/v2 v2.26.0
+	github.com/onsi/ginkgo/v2 v2.27.1
 	github.com/onsi/gomega v1.38.2
 )
 
