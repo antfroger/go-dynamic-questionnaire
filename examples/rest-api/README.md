@@ -253,7 +253,7 @@ The API provides clear error responses:
 
 ```go
 var questionnaires = map[string]string{
-    "survey": "survey.yaml",
+    "survey": "survey.json",
     "your-questionnaire": "your-file.yaml",
 }
 ```

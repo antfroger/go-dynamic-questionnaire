@@ -16,7 +16,7 @@ import (
 
 // Available questionnaires
 var questionnaires = map[string]string{
-	"survey": "survey.yaml",
+	"survey": "survey.json",
 }
 
 // Response structures
