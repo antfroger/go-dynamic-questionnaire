@@ -3,7 +3,7 @@ module github.com/antfroger/go-dynamic-questionnaire
 go 1.24.0
 
 require (
-	github.com/expr-lang/expr v1.17.6
+	github.com/expr-lang/expr v1.17.7
 	github.com/goccy/go-yaml v1.19.0
 	// dev dependencies
 	github.com/onsi/ginkgo/v2 v2.27.2
