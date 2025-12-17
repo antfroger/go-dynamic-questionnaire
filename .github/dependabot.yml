@@ -5,21 +5,19 @@ updates:
       - "/"
       - "/examples/*"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "[gomod] "
     groups:
-      minor-patch-updates:
-        update-types: ["minor", "major"]
+      go-dependencies:
+        patterns: ["*"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-    groups:
-      all-actions:
-        patterns: [ "*" ]
-      minor-patch-updates:
-        update-types: ["minor", "major"]
+      interval: "monthly"
     commit-message:
       prefix: "[actions] "
+    groups:
+      all-actions:
+        patterns: ["*"]
