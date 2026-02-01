@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v6
       - name: Get Go versions
         id: versions
-        uses: arnested/go-version-action@v1
+        uses: arnested/go-version-action@v2
 
   check:
     name: Go checks
