@@ -7,7 +7,7 @@ replace github.com/antfroger/go-dynamic-questionnaire => ../../
 require (
 	github.com/antfroger/go-dynamic-questionnaire v0.0.0-20250716105358-b353a653c9d5
 	github.com/gin-gonic/gin v1.12.0
-	golang.org/x/text v0.34.0
+	golang.org/x/text v0.35.0
 )
 
 require (
