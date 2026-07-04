@@ -5,7 +5,7 @@ go 1.25.0
 replace github.com/antfroger/go-dynamic-questionnaire => ../../
 
 require (
-	github.com/antfroger/go-dynamic-questionnaire v0.0.0-20250716105358-b353a653c9d5
+	github.com/antfroger/go-dynamic-questionnaire v0.0.0-20260701081209-cac39eaa61af
 	github.com/gin-gonic/gin v1.12.0
 	golang.org/x/text v0.38.0
 )
@@ -36,8 +36,8 @@ require (
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	golang.org/x/arch v0.22.0 // indirect
-	golang.org/x/crypto v0.50.0 // indirect
-	golang.org/x/net v0.53.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/crypto v0.53.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 )
