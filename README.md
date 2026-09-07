@@ -9,7 +9,6 @@ Dynamic Questionnaire requires Go >= 1.23
 
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/antfroger/go-dynamic-questionnaire)](https://pkg.go.dev/github.com/antfroger/go-dynamic-questionnaire)
 [![CI](https://github.com/antfroger/go-dynamic-questionnaire/actions/workflows/go.yml/badge.svg)](https://github.com/antfroger/go-dynamic-questionnaire/actions/workflows/go.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/antfroger/go-dynamic-questionnaire)](https://goreportcard.com/report/github.com/antfroger/go-dynamic-questionnaire)
 [![Release](https://img.shields.io/github/release/antfroger/go-dynamic-questionnaire.svg?style=flat-square)](https://github.com/antfroger/go-dynamic-questionnaire/releases)
 
 ## Installation
@@ -57,6 +56,8 @@ func main() {
     }
 }
 ```
+
+![CLI demo](examples/cli/demo.gif)
 
 ## Configuration Format
 
