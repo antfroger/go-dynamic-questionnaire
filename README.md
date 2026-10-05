@@ -119,9 +119,9 @@ Show personalized messages when questionnaire is completed:
 
 ```go
 type ClosingRemark struct {
-		Id   string `json:"id"`   // Unique identifier for the remark
-		Text string `json:"text"` // The message text to display
-	}
+    Id   string `json:"id"`   // Unique identifier for the remark
+    Text string `json:"text"` // The message text to display
+}
 ```
 
 Configure closing remarks in your YAML:
@@ -177,7 +177,7 @@ cd examples/cli
 go run main.go tech.yaml
 ```
 
-[More details in the dedicated README.](examples/cli/README.md)
+[More details in the dedicated README.](examples/README.md)
 
 ### REST API Server
 
