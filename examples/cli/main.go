@@ -70,7 +70,7 @@ func askQuestion(question gdq.Question) int {
 	var input string
 	for {
 		fmt.Print("Select answer: ")
-		fmt.Scanln(&input)
+		_, _ = fmt.Scanln(&input)
 
 		choice, err := strconv.Atoi(strings.TrimSpace(input))
 		if err != nil || choice < 1 || choice > len(question.Answers) {
